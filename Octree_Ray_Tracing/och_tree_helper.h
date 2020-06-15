@@ -1,0 +1,27 @@
+#pragma once
+
+#include <cstdint>
+
+namespace och
+{
+	using voxel_t = int32_t;
+
+	enum class direction
+	{
+		x_pos = 0,
+		y_pos = 1,
+		z_pos = 2,
+		x_neg = 3,
+		y_neg = 4,
+		z_neg = 5,
+		exit = 6,
+		inside = 7,
+		error = 8
+	};
+
+	enum class voxel : voxel_t
+	{
+		air = 0,
+		active = 1
+	};
+}
