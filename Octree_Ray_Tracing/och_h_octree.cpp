@@ -12,6 +12,17 @@
 
 namespace och
 {
+
+
+
+
+
+
+
+
+
+
+	/*
 	static constexpr int log2_tablesize = 24;
 
 	static constexpr int tablesize = 1 << log2_tablesize;
@@ -237,16 +248,6 @@ namespace och
 
 		uint8_t curr_paren[8]{ 0, 0, 0, 0, 0, 0, 0, 0 };
 	}
-
-
-
-	/*
-	void pck_trace_h_tree(uint32_t root_idx, int depth, const float* ox, const float* oy, const float* oz, const float* dx, const float* dy, const float* dz, int elem_cnt, direction* out_direction, voxel* out_voxel)
-	{
-
-	}
-	*/
-
 
 	void sse_trace_h_octree(int depth, float ox, float oy, float oz, float dx, float dy, float dz, direction& hit_direction, voxel& hit_voxel, float& hit_time)
 	{
@@ -564,4 +565,5 @@ namespace och
 	{
 		inv_trace_h_octree(child_depth, o.x, o.y, o.z, d.x, d.y, d.z, hit_direction, hit_voxel, hit_time);
 	}
+	*/
 }

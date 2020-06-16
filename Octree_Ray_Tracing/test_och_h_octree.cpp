@@ -16,12 +16,14 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
+typedef och::h_octree<22, 8> h_tree;
+
 constexpr bool is_norm = true;
 
 constexpr int screen_size_x = 640, screen_size_y = 360;
 constexpr int pixel_size_x = 2, pixel_size_y = 2;
 
-constexpr int octree_depth = 12;
+constexpr int octree_depth = 8;
 constexpr int octree_dim = 1 << octree_depth;
 
 constexpr olc::Pixel colours[8] {
@@ -55,15 +57,32 @@ constexpr olc::Pixel voxel_colours[2] {
 OpenSimplexNoise terrain_noise(8789);
 
 
-
-
-
 struct h_octree_camera
 {
-	och::float3 rays[screen_size_x * screen_size_y];
-	olc::Pixel img[screen_size_x * screen_size_y];
+	static constexpr float delta_dir = 1.0F;
 
-	och::float3 camera_pos{ 1,1,1 };
+	static constexpr float delta_speed = 0.00390625F;						//1/256
+
+	float speed = 0.0078125F;												//1/128
+
+	const h_tree& tree;
+
+	och::float3* rays = new och::float3[screen_size_x * screen_size_y];
+	olc::Pixel* img = new olc::Pixel[screen_size_x * screen_size_y];
+
+	bool is_flying_camera = true;
+
+	och::float2 dir{ 0.0F, 0.0F };
+
+	och::float3 pos{ 1.5F ,1.5F, 1.5F };
+
+	h_octree_camera(const h_tree& tree) : tree{ tree } {}
+
+	~h_octree_camera()
+	{
+		delete[] rays;
+		delete[] img;
+	}
 
 	void trace_pixel(size_t x, size_t y)
 	{
@@ -71,22 +90,19 @@ struct h_octree_camera
 
 		och::direction hit_direction;
 
-		och::voxel hit_voxel;
+		uint32_t hit_voxel;
 
 		float hit_time;
 
 
-		if constexpr(is_norm)
-			och::sse_trace_h_octree(octree_depth, camera_pos, rays[idx], hit_direction, hit_voxel, hit_time);
-		else
-		{
-			och::inv_trace_h_octree(octree_depth - 1, camera_pos, rays[idx], hit_direction, hit_voxel, hit_time);
-		}
+		tree.sse_trace(pos, rays[idx], hit_direction, hit_voxel, hit_time);
+
+		//img[idx] = hit_time == 0.0F ? olc::BLACK : olc::Pixel( (uint8_t)(hit_time * 255), (uint8_t)(hit_time * 1023), (uint8_t)(hit_time * 2047));
 
 		img[idx] = colours[static_cast<int>(hit_direction)];
 	}
 
-	void update_position(och::float2 v_angles, och::float3 v_pos)
+	void update_position()
 	{
 		constexpr float aspect_ratio_factor = static_cast<float>(screen_size_x) / static_cast<float>(screen_size_y);
 
@@ -101,10 +117,10 @@ struct h_octree_camera
 		//precalculate rotation matrix-stuff
 		const float sin_a = 0;
 		const float cos_a = 1;
-		const float sin_b = sinf(v_angles.x);
-		const float cos_b = cosf(v_angles.x);
-		const float sin_c = sinf(v_angles.y);
-		const float cos_c = cosf(v_angles.y);
+		const float sin_b = sinf(dir.x);
+		const float cos_b = cosf(dir.x);
+		const float sin_c = sinf(dir.y);
+		const float cos_c = cosf(dir.y);
 
 		const float t_x_fx = cos_a * cos_b;
 		const float t_x_fy = cos_a * sin_b * sin_c - sin_a * cos_c;
@@ -115,8 +131,6 @@ struct h_octree_camera
 		const float t_z_fx = -sin_b;
 		const float t_z_fy = cos_b * sin_c;
 		const float t_z_fz = cos_b * cos_c;
-
-
 
 		int idx = 0;
 
@@ -139,74 +153,39 @@ struct h_octree_camera
 				rays[idx++] = { rw * reciprocal_mag, ru * reciprocal_mag, -rv * reciprocal_mag };
 			}
 		}
+	}
 
-		if constexpr(is_norm)
-		{
-			camera_pos.x = v_pos.x / octree_dim + 1.0F;
-			camera_pos.y = v_pos.y / octree_dim + 1.0F;
-			camera_pos.z = v_pos.z / octree_dim + 1.0F;
-		}
-		else
-			camera_pos = v_pos;
+	olc::Pixel& at(int x, int y)
+	{
+		return img[x + y * screen_size_x];
 	}
 
 	void draw_crosshair()
 	{
-		int center_x = screen_size_x / 2 - 1;
-		int center_y = screen_size_y / 2 - 1;
+		constexpr int cx = screen_size_x / 2 - 1;
+		constexpr int cy = screen_size_y / 2 - 1;
 
-		int center = center_x + center_y * screen_size_x;
+		constexpr olc::Pixel crosshair_col = { 70, 30, 0 };
 
-		img[center - 5] = { 0, 0, 0 };
-		img[center - 4] = { 0, 0, 0 };
-		img[center - 3] = { 0, 0, 0 };
-		img[center - 2] = { 0, 0, 0 };
-		img[center - 1] = { 0, 0, 0 };
-		img[center] = { 0, 0, 0 };
-		img[center + 1] = { 0, 0, 0 };
-		img[center + 2] = { 0, 0, 0 };
-		img[center + 3] = { 0, 0, 0 };
-		img[center + 4] = { 0, 0, 0 };
-		img[center + 5] = { 0, 0, 0 };
-		img[center + 6] = { 0, 0, 0 };
+		at(cx - 1, cy - 2) = crosshair_col;
+		at(cx, cy - 2) = crosshair_col;
+		at(cx + 1, cy - 2) = crosshair_col;
+		at(cx + 2, cy - 2) = crosshair_col;
 
-		img[center + screen_size_x - 5] = { 0, 0, 0 };
-		img[center + screen_size_x - 4] = { 0, 0, 0 };
-		img[center + screen_size_x - 3] = { 0, 0, 0 };
-		img[center + screen_size_x - 2] = { 0, 0, 0 };
-		img[center + screen_size_x - 1] = { 0, 0, 0 };
-		img[center + screen_size_x] = { 0, 0, 0 };
-		img[center + screen_size_x + 1] = { 0, 0, 0 };
-		img[center + screen_size_x + 2] = { 0, 0, 0 };
-		img[center + screen_size_x + 3] = { 0, 0, 0 };
-		img[center + screen_size_x + 4] = { 0, 0, 0 };
-		img[center + screen_size_x + 5] = { 0, 0, 0 };
-		img[center + screen_size_x + 6] = { 0, 0, 0 };
+		at(cx - 2, cy - 1) = crosshair_col;
+		at(cx - 2, cy) = crosshair_col;
+		at(cx - 2, cy + 1) = crosshair_col;
+		at(cx - 2, cy + 2) = crosshair_col;
 
-		img[center - screen_size_x * 5] = { 0, 0, 0 };
-		img[center - screen_size_x * 4] = { 0, 0, 0 };
-		img[center - screen_size_x * 3] = { 0, 0, 0 };
-		img[center - screen_size_x * 2] = { 0, 0, 0 };
-		img[center - screen_size_x] = { 0, 0, 0 };
-		img[center + screen_size_x * 2] = { 0, 0, 0 };
-		img[center + screen_size_x * 3] = { 0, 0, 0 };
-		img[center + screen_size_x * 4] = { 0, 0, 0 };
-		img[center + screen_size_x * 5] = { 0, 0, 0 };
-		img[center + screen_size_x * 6] = { 0, 0, 0 };
+		at(cx - 1, cy + 3) = crosshair_col;
+		at(cx, cy + 3) = crosshair_col;
+		at(cx + 1, cy + 3) = crosshair_col;
+		at(cx + 2, cy + 3) = crosshair_col;
 
-		img[center - screen_size_x * 5 + 1] = { 0, 0, 0 };
-		img[center - screen_size_x * 4 + 1] = { 0, 0, 0 };
-		img[center - screen_size_x * 3 + 1] = { 0, 0, 0 };
-		img[center - screen_size_x * 2 + 1] = { 0, 0, 0 };
-		img[center - screen_size_x + 1] = { 0, 0, 0 };
-		img[center + screen_size_x * 2 + 1] = { 0, 0, 0 };
-		img[center + screen_size_x * 3 + 1] = { 0, 0, 0 };
-		img[center + screen_size_x * 4 + 1] = { 0, 0, 0 };
-		img[center + screen_size_x * 5 + 1] = { 0, 0, 0 };
-		img[center + screen_size_x * 6 + 1] = { 0, 0, 0 };
-
-
-		img[center + screen_size_x + 1] = { 0, 0, 0 };
+		at(cx + 3, cy - 1) = crosshair_col;
+		at(cx + 3, cy) = crosshair_col;
+		at(cx + 3, cy + 1) = crosshair_col;
+		at(cx + 3, cy + 2) = crosshair_col;
 	}
 
 	long long update_image()
@@ -227,130 +206,152 @@ struct h_octree_camera
 	}
 };
 
-h_octree_camera camera;
-
-class octnode_window_test : public olc::PixelGameEngine
+class h_octree_window : public olc::PixelGameEngine
 {
 public:
 
-	float camera_view_pos_change = 16.0F;
+	h_octree_camera camera;
 
-	och::float2 camera_view_dir{ 0, 0 };
+	h_tree& tree;
 
-	och::float3 camera_view_pos{ 1 << (octree_depth - 1), 1 << (octree_depth - 1) , 1 << (octree_depth - 1) };
-
-	bool is_directional_flying_camera = true;
-
-	octnode_window_test() { sAppName = "VVV - (Vx Volume Visualisation)"; }
+	h_octree_window(h_tree& tree) : tree{ tree }, camera{ tree }
+	{
+		sAppName = "VVV - (Vx Volume Visualisation)";
+	}
 
 	bool OnUserCreate() override
 	{
 		return true;
 	}
 
-	bool OnUserUpdate(float fElapsedTime) override
+	void update_camera_setup()
 	{
-		constexpr float view_pos_incr_change = 1.0F;
-
-		if (GetKey(olc::Key::C).bPressed) is_directional_flying_camera = !is_directional_flying_camera;
+		if (GetKey(olc::Key::C).bPressed)
+			camera.is_flying_camera = !camera.is_flying_camera;
 
 		if (GetKey(olc::Key::NP_ADD).bPressed)
 		{
-			camera_view_pos_change += view_pos_incr_change;
-			std::cout << "camera-movement-speed incremented to: " << camera_view_pos_change << '\n';
+			camera.speed += camera.delta_speed;
+			std::cout << "camera-movement-speed incremented to: " << camera.speed << '\n';
 		}
 		else if (GetKey(olc::Key::NP_SUB).bPressed)
 		{
-			camera_view_pos_change -= view_pos_incr_change;
-			std::cout << "camera-movement-speed decremented to: " << camera_view_pos_change << '\n';
+			camera.speed -= camera.delta_speed;
+			std::cout << "camera-movement-speed decremented to: " << camera.speed << '\n';
 		}
+	}
 
-		camera.update_position(camera_view_dir, camera_view_pos);
+	void update_camera_pos(float fElapsedTime, const och::float3& dir3)
+	{
+		float horizontal_view_dir_fct = 1 / sqrtf(dir3.x * dir3.x + dir3.y * dir3.y);
 
-		och::float3 center_ray = camera.rays[screen_size_x / 2 + (screen_size_y / 2) * screen_size_x];
-
-		float horizontal_view_dir_fct = 1 / sqrtf(center_ray.x * center_ray.x + center_ray.y * center_ray.y);
-
-		if (is_directional_flying_camera)
+		if (camera.is_flying_camera)
 		{
 			if (GetKey(olc::Key::W).bHeld)
 			{
-				camera_view_pos.x += center_ray.x * camera_view_pos_change * fElapsedTime;
-				camera_view_pos.y += center_ray.y * camera_view_pos_change * fElapsedTime;
-				camera_view_pos.z += center_ray.z * camera_view_pos_change * fElapsedTime;
+				camera.pos += dir3 * camera.speed * fElapsedTime;
 			}
 			if (GetKey(olc::Key::S).bHeld)
 			{
-				camera_view_pos.x -= center_ray.x * camera_view_pos_change * fElapsedTime;
-				camera_view_pos.y -= center_ray.y * camera_view_pos_change * fElapsedTime;
-				camera_view_pos.z -= center_ray.z * camera_view_pos_change * fElapsedTime;
+				camera.pos -= dir3 * camera.speed * fElapsedTime;
 			}
 			if (GetKey(olc::Key::A).bHeld)
 			{
-				camera_view_pos.x += center_ray.y * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
-				camera_view_pos.y -= center_ray.x * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.x += dir3.y * camera.speed * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.y -= dir3.x * camera.speed * fElapsedTime * horizontal_view_dir_fct;
 			}
 			if (GetKey(olc::Key::D).bHeld)
 			{
-				camera_view_pos.x -= center_ray.y * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
-				camera_view_pos.y += center_ray.x * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.x -= dir3.y * camera.speed * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.y += dir3.x * camera.speed * fElapsedTime * horizontal_view_dir_fct;
 			}
 		}
 		else
 		{
 			if (GetKey(olc::Key::W).bHeld)
 			{
-				camera_view_pos.x += center_ray.x * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
-				camera_view_pos.y += center_ray.y * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.x += dir3.x * camera.speed * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.y += dir3.y * camera.speed * fElapsedTime * horizontal_view_dir_fct;
 			}
 			if (GetKey(olc::Key::S).bHeld)
 			{
-				camera_view_pos.x -= center_ray.x * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
-				camera_view_pos.y -= center_ray.y * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.x -= dir3.x * camera.speed * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.y -= dir3.y * camera.speed * fElapsedTime * horizontal_view_dir_fct;
 			}
 			if (GetKey(olc::Key::A).bHeld)
 			{
-				camera_view_pos.x += center_ray.y * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
-				camera_view_pos.y -= center_ray.x * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.x += dir3.y * camera.speed * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.y -= dir3.x * camera.speed * fElapsedTime * horizontal_view_dir_fct;
 			}
 			if (GetKey(olc::Key::D).bHeld)
 			{
-				camera_view_pos.x -= center_ray.y * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
-				camera_view_pos.y += center_ray.x * camera_view_pos_change * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.x -= dir3.y * camera.speed * fElapsedTime * horizontal_view_dir_fct;
+				camera.pos.y += dir3.x * camera.speed * fElapsedTime * horizontal_view_dir_fct;
 			}
-			if (GetKey(olc::Key::SPACE).bHeld) camera_view_pos.z += camera_view_pos_change * fElapsedTime;
-			if (GetKey(olc::Key::SHIFT).bHeld) camera_view_pos.z -= camera_view_pos_change * fElapsedTime;
+			if (GetKey(olc::Key::SPACE).bHeld) camera.pos.z += camera.speed * fElapsedTime;
+			if (GetKey(olc::Key::SHIFT).bHeld) camera.pos.z -= camera.speed * fElapsedTime;
 		}
+	}
 
-		constexpr float view_direction_speed = 1.0F;
+	void update_camera_dir(float fElapsedTime)
+	{
+		if (GetKey(olc::Key::LEFT).bHeld)  camera.dir.x -= camera.delta_dir * fElapsedTime;
+		if (GetKey(olc::Key::RIGHT).bHeld) camera.dir.x += camera.delta_dir * fElapsedTime;
+		if (GetKey(olc::Key::UP).bHeld)    camera.dir.y += camera.delta_dir * fElapsedTime;
+		if (GetKey(olc::Key::DOWN).bHeld)  camera.dir.y -= camera.delta_dir * fElapsedTime;
+	}
 
-		if (GetKey(olc::Key::LEFT).bHeld) camera_view_dir.x -= view_direction_speed * fElapsedTime;
-		if (GetKey(olc::Key::RIGHT).bHeld) camera_view_dir.x += view_direction_speed * fElapsedTime;
-		if (GetKey(olc::Key::UP).bHeld) camera_view_dir.y += view_direction_speed * fElapsedTime;
-		if (GetKey(olc::Key::DOWN).bHeld) camera_view_dir.y -= view_direction_speed * fElapsedTime;
+	bool OnUserUpdate(float fElapsedTime) override
+	{
+		och::float3 dir3 = { cosf(camera.dir.x) * cosf(camera.dir.y), sinf(camera.dir.x) * cosf(camera.dir.y), sinf(camera.dir.y) };
 
-		if (GetMouse(0).bPressed)//If the left mouse button is pressed...
+		update_camera_setup();
+
+		update_camera_pos(fElapsedTime, dir3);
+
+		update_camera_dir(fElapsedTime);
+
+		float collision_dist;
+
+		och::direction direction_dump;
+
+		uint32_t voxel_dump;
+
+		tree.sse_trace(camera.pos, dir3, direction_dump, voxel_dump, collision_dist);
+
+		if (GetMouse(2).bPressed)//If the middle mouse button is pressed...
 		{
-			float view_dir_collision_dist;
+			std::cout << "position (" << camera.pos.x << ", " << camera.pos.y << ", " << camera.pos.z << ")\n";
+			std::cout << "facing (" << dir3.x << ", " << dir3.y << ", " << dir3.z << ")\n";
 
-			och::float3 view_dir_3 = { cosf(camera_view_dir.x) * cosf(camera_view_dir.y), sinf(camera_view_dir.x) * cosf(camera_view_dir.y), sinf(camera_view_dir.y) };
+			constexpr float min_jump_dist = 0.0625F;
 
-			std::cout << "position (" << camera_view_pos.x << ", " << camera_view_pos.y << ", " << camera_view_pos.z << ")\n";
-			std::cout << "facing (" << view_dir_3.x << ", " << view_dir_3.y << ", " << view_dir_3.z << ")\n";
+			collision_dist = collision_dist > min_jump_dist ? collision_dist - min_jump_dist : 0;
 
-			och::direction dir_dump;
-
-			och::voxel vox_dump;
-
-			if constexpr (is_norm)
-				och::sse_trace_h_octree(octree_depth, camera_view_pos, view_dir_3, dir_dump, vox_dump, view_dir_collision_dist);
-			else
-				och::inv_trace_h_octree(octree_depth - 1, camera_view_pos, view_dir_3, dir_dump, vox_dump, view_dir_collision_dist);
-
-			view_dir_collision_dist = view_dir_collision_dist > 32 ? view_dir_collision_dist - 32 : 0;
-
-			camera_view_pos += view_dir_3 * view_dir_collision_dist;
+			camera.pos += dir3 * collision_dist;
 		}
+		else if (GetMouse(0).bPressed)//If left mouse button is pressed...
+		{
+			//constexpr float max_interact_dist = 0.0078125F;
+			//
+			//if (collision_dist <= max_interact_dist)
+			//{
+			//	och::float3 collision_pos = camera.pos + (dir3 * (collision_dist + 0.0001F));
+			//	collision_pos.x -= 1.0F;
+			//	collision_pos.y -= 1.0F;
+			//	collision_pos.z -= 1.0F;
+			//
+			//	uint16_t collision_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
+			//	uint16_t collision_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
+			//	uint16_t collision_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
+			//
+			//	tree.unset(collision_x, collision_y, collision_z);
+			//}
+		}
+		else if (GetMouse(1).bPressed)//If right mouse button is pressed
+			printf("\nPressed Right\n");
+
+		camera.update_position();
 
 		long long trace_time = camera.update_image();
 
@@ -364,10 +365,6 @@ public:
 	}
 };
 
-octnode_window_test window;
-
-
-
 
 
 int get_terrain_heigth(int x, int y)
@@ -375,9 +372,9 @@ int get_terrain_heigth(int x, int y)
 	return static_cast<int>(terrain_noise.Evaluate((static_cast<float>(x * 4) / octree_dim), (static_cast<float>(y * 4) / octree_dim)) * octree_dim / 16 + octree_dim / 2);
 }
 
-uint32_t create_node_try4_inline(int x, int y, int z, int depth)
+uint32_t create_node_try4_inline(int x, int y, int z, int depth, h_tree& tree)
 {
-	och::h_node_8 node;
+	h_tree::node node;
 
 	int nx = x << 1, ny = y << 1, nz = z << 1;
 
@@ -394,20 +391,20 @@ uint32_t create_node_try4_inline(int x, int y, int z, int depth)
 	}
 	else
 	{
-		node.children[0] = create_node_try4_inline(nx    , ny    , nz    , depth - 1);
-		node.children[1] = create_node_try4_inline(nx + 1, ny    , nz    , depth - 1);
-		node.children[2] = create_node_try4_inline(nx    , ny + 1, nz    , depth - 1);
-		node.children[3] = create_node_try4_inline(nx + 1, ny + 1, nz    , depth - 1);
-		node.children[4] = create_node_try4_inline(nx    , ny    , nz + 1, depth - 1);
-		node.children[5] = create_node_try4_inline(nx + 1, ny    , nz + 1, depth - 1);
-		node.children[6] = create_node_try4_inline(nx    , ny + 1, nz + 1, depth - 1);
-		node.children[7] = create_node_try4_inline(nx + 1, ny + 1, nz + 1, depth - 1);
+		node.children[0] = create_node_try4_inline(nx    , ny    , nz    , depth - 1, tree);
+		node.children[1] = create_node_try4_inline(nx + 1, ny    , nz    , depth - 1, tree);
+		node.children[2] = create_node_try4_inline(nx    , ny + 1, nz    , depth - 1, tree);
+		node.children[3] = create_node_try4_inline(nx + 1, ny + 1, nz    , depth - 1, tree);
+		node.children[4] = create_node_try4_inline(nx    , ny    , nz + 1, depth - 1, tree);
+		node.children[5] = create_node_try4_inline(nx + 1, ny    , nz + 1, depth - 1, tree);
+		node.children[6] = create_node_try4_inline(nx    , ny + 1, nz + 1, depth - 1, tree);
+		node.children[7] = create_node_try4_inline(nx + 1, ny + 1, nz + 1, depth - 1, tree);
 	}
 
-	if (node == och::h_node_8{ 0, 0, 0, 0, 0, 0, 0, 0 })
+	if (node.is_zero())
 		return 0;
 
-	return register_h_node_8(&node);
+	return tree.register_node(node);
 }
 
 struct tree_initializer
@@ -442,11 +439,11 @@ uint32_t get_leaf_val()
 	return 1; //(std::rand() & 0b1111111111) + 1;
 }
 
-uint32_t create_node_try7(const int x, const int y, const int z, const int depth, const tree_initializer& heights)
+uint32_t create_node_try7(const int x, const int y, const int z, const int depth, const tree_initializer& heights, h_tree& tree)
 {
 	const int dim = 1 << depth;
 
-	och::h_node_8 node;
+	h_tree::node node;
 
 	for(int _y = 0; _y < dim; ++_y)
 		for (int _x = 0; _x < dim; ++_x)
@@ -465,14 +462,14 @@ ACTIVE:
 
 	if (depth != 1)//No leaf yet...
 	{
-		node.children[0] = create_node_try7(x           , y           , z           , depth - 1, heights);
-		node.children[1] = create_node_try7(x + half_dim, y           , z           , depth - 1, heights);
-		node.children[2] = create_node_try7(x           , y + half_dim, z           , depth - 1, heights);
-		node.children[3] = create_node_try7(x + half_dim, y + half_dim, z           , depth - 1, heights);
-		node.children[4] = create_node_try7(x           , y           , z + half_dim, depth - 1, heights);
-		node.children[5] = create_node_try7(x + half_dim, y           , z + half_dim, depth - 1, heights);
-		node.children[6] = create_node_try7(x           , y + half_dim, z + half_dim, depth - 1, heights);
-		node.children[7] = create_node_try7(x + half_dim, y + half_dim, z + half_dim, depth - 1, heights);
+		node.children[0] = create_node_try7(x           , y           , z           , depth - 1, heights, tree);
+		node.children[1] = create_node_try7(x + half_dim, y           , z           , depth - 1, heights, tree);
+		node.children[2] = create_node_try7(x           , y + half_dim, z           , depth - 1, heights, tree);
+		node.children[3] = create_node_try7(x + half_dim, y + half_dim, z           , depth - 1, heights, tree);
+		node.children[4] = create_node_try7(x           , y           , z + half_dim, depth - 1, heights, tree);
+		node.children[5] = create_node_try7(x + half_dim, y           , z + half_dim, depth - 1, heights, tree);
+		node.children[6] = create_node_try7(x           , y + half_dim, z + half_dim, depth - 1, heights, tree);
+		node.children[7] = create_node_try7(x + half_dim, y + half_dim, z + half_dim, depth - 1, heights, tree);
 	}
 	else//Leaf
 	{
@@ -489,11 +486,17 @@ ACTIVE:
 	if (node.is_zero())
 		printf("ERR");
 
-	och::register_h_node_8(&node);
+	return tree.register_node(node);
 }
+
+
 
 void test_och_hashed_octree()
 {
+	h_tree tree;
+
+	h_octree_window window(tree);
+
 	std::cout << "test_och_hashed_octree...\n";
 
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -501,26 +504,26 @@ void test_och_hashed_octree()
 	{
 		tree_initializer heightfield;
 	
-		och::set_root(create_node_try7(0, 0, 0, octree_depth, heightfield));
+		tree.set_root(create_node_try7(0, 0, 0, tree.depth, heightfield, tree));
 	}
 
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-	printf("\nTree-depth: %i\n", octree_depth);
+	printf("\nTree-depth: %i\n", tree.depth);
 
-	printf("\nTree-dimension: %i\n", octree_dim);
+	printf("\nTree-dimension: %i\n", tree.dim);
 
 	printf("\nTime taken to construct svodag:   %lli ms\n", std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count());
 
-	printf("\nFilled entries in node-hashtable: %i of %i max\n", och::get_fill_count(), och::get_table_size());
+	printf("\nFilled entries in node-hashtable: %i of %i max\n", tree.get_fillcnt(), tree.table_capacity);
 
-	printf("\nTotal node-count: %i\n", och::get_node_count());
+	printf("\nTotal node-count: %i\n", tree.get_nodecnt());
 
-	printf("\nCompression-ratio: %f (%i%%)\n", (float)och::get_node_count() / och::get_fill_count(), (int)(100.0F / ((float)och::get_fill_count() / och::get_node_count())));
+	printf("\nCompression-ratio: %f\n", (float)tree.get_nodecnt() / tree.get_fillcnt());
 
-	printf("\nRequired size in memory: %s\n", och::abbreviate_byte_size(static_cast<size_t>(och::get_fill_count()) * 35).c_str());
+	printf("\nRequired size in memory: %s\n", och::abbreviate_byte_size(static_cast<size_t>(tree.get_fillcnt()) * 35).c_str());
 
-	printf("\nUncompressed size: %s\n", och::abbreviate_byte_size(static_cast<size_t>(och::get_node_count()) * 32).c_str());
+	printf("\nUncompressed size: %s\n", och::abbreviate_byte_size(static_cast<size_t>(tree.get_nodecnt()) * 32).c_str());
 
 	if (window.Construct(screen_size_x, screen_size_y, pixel_size_x, pixel_size_y))
 		window.Start();

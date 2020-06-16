@@ -35,7 +35,6 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="och_float.cpp" />
-    <ClCompile Include="och_h_octree.cpp" />
     <ClCompile Include="och_octree.cpp" />
     <ClCompile Include="och_string_util.cpp" />
     <ClCompile Include="och_z_order.cpp" />

@@ -65,9 +65,6 @@
     <ClCompile Include="och_float.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="och_h_octree.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="och_octree.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
