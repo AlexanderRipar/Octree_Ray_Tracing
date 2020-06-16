@@ -19,8 +19,8 @@
 
 typedef och::h_octree<19, 12> tree_t;
 
-constexpr int screen_size_x = 640, screen_size_y = 360;
-constexpr int pixel_size_x = 2, pixel_size_y = 2;
+constexpr int screen_size_x = 640 * 2, screen_size_y = 360 * 2;
+constexpr int pixel_size_x = 1, pixel_size_y = 1;
 
 const olc::Pixel colours[8] {
 

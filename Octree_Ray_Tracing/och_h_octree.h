@@ -377,5 +377,50 @@ namespace och
 			sse_trace(o.x, o.y, o.z, d.x, d.y, d.z, hit_direction, hit_voxel, hit_time);
 		}
 
+		void avx_trace(const float* ox, const float* oy, const float* oz, const float* dx, const float* dy, const float* dz, direction* hit_direction, uint32_t* hit_voxel, float* hit_time) const
+		{
+			const __m256 _zero = _mm256_setzero_ps();
+			const __m256 _sbit = _mm256_set1_ps(-0.0F);
+			const __m256 _three = _mm256_set1_ps(3.0F);
+			const __m256 _one_point_five = _mm256_set1_ps(1.5F);
+
+			__m256 _ox = _mm256_load_ps(ox);
+			__m256 _oy = _mm256_load_ps(oy);
+			__m256 _oz = _mm256_load_ps(oz);
+
+			__m256 _dx = _mm256_load_ps(dx);//direction
+			__m256 _dy = _mm256_load_ps(dy);
+			__m256 _dz = _mm256_load_ps(dz);
+
+			__m256 _sx = _mm256_cmp_ps(dx, _zero, 29);//sign
+			__m256 _sy = _mm256_cmp_ps(dz, _zero, 29);
+			__m256 _sz = _mm256_cmp_ps(dy, _zero, 29);
+
+			_dx = _mm256_or_ps(_dx, _sbit);
+			_dy = _mm256_or_ps(_dy, _sbit);
+			_dz = _mm256_or_ps(_dz, _sbit);
+
+			_ox = _mm_or_ps(_sbit, _mm_sub_ps(_mm_and_ps(_sx, _three), _ox));//origin
+			_oy = _mm_or_ps(_sbit, _mm_sub_ps(_mm_and_ps(_sy, _three), _oy));
+			_oz = _mm_or_ps(_sbit, _mm_sub_ps(_mm_and_ps(_sz, _three), _oz));
+
+			const __m256 _cx = _mm256_rcp_ps(_dx);//coeff
+			const __m256 _cy = _mm256_rcp_ps(_dy);
+			const __m256 _cz = _mm256_rcp_ps(_dz);
+
+			const __m256 _bx = _mm256_mul_ps(_cx, _ox);//bias
+			const __m256 _by = _mm256_mul_ps(_cy, _oy);
+			const __m256 _bz = _mm256_mul_ps(_cz, _oz);
+
+			__m256 _px = _mm256_and_ps(_ox, _one_point_five);//position
+			__m256 _py = _mm256_and_ps(_oy, _one_point_five);
+			__m256 _pz = _mm256_and_ps(_oz, _one_point_five);
+
+			int idx_x = _mm256_movemask_ps(_mm256_cmp_ps(_px, _one_point_five, 0);
+			int idx_y = _mm256_movemask_ps(_mm256_cmp_ps(_py, _one_point_five, 0);
+			int idx_z = _mm256_movemask_ps(_mm256_cmp_ps(_pz, _one_point_five, 0);
+
+			int idx = och::z_encode_8(signs_x, signs_y, signs_z);
+		}
 	};
 }

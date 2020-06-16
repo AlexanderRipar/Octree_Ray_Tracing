@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="och_fh_tree.h" />
     <ClInclude Include="och_debug.h" />
     <ClInclude Include="och_float.h" />
     <ClInclude Include="och_h_octree.h" />
@@ -40,6 +41,9 @@
     <ClCompile Include="och_z_order.cpp" />
     <ClCompile Include="test_och_h_octree.cpp" />
     <ClCompile Include="test_och_octree.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Text.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

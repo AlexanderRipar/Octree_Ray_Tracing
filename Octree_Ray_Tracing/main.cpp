@@ -2,6 +2,8 @@
 #include <cstdio>
 #include <immintrin.h>
 
+#include <array>
+
 #include "test_och_h_octree.h"
 #include "test_och_octree.h"
 
@@ -10,8 +12,6 @@ int main()
 	test_och_h_octree();
 
 	//test_och_octree();
-
-
 
 
 

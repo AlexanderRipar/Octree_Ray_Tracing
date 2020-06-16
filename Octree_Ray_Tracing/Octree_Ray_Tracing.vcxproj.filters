@@ -51,6 +51,9 @@
     <ClInclude Include="test_och_h_octree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="och_fh_tree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test_och_h_octree.cpp">
@@ -74,5 +77,10 @@
     <ClCompile Include="och_z_order.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Text.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>
