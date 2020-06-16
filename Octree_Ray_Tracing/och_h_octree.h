@@ -7,6 +7,7 @@
 #include <intrin.h>
 
 #include "och_tree_helper.h"
+#include "och_z_order.h"
 #include "och_vec.h"
 #include "och_debug.h"
 
@@ -19,17 +20,20 @@ namespace och
 		//TEMPLATED CONSTANTS
 
 	public:
+
 		static constexpr int depth = Depth;
 		static constexpr int dim = 1 << Depth;
 		static constexpr int log2_table_capacity = Log2_table_capacity;
 		static constexpr int table_capacity = 1 << Log2_table_capacity;
 
 	private:
+
 		static constexpr int idx_mask = ((table_capacity - 1) >> 4) << 4;
 
 		//STRUCTS
 
 	public:
+
 		struct node
 		{
 			uint32_t children[8] alignas(32);
@@ -61,6 +65,7 @@ namespace och
 		};
 
 	private:
+
 		struct node_hashtable
 		{
 			node_hashtable()
@@ -76,9 +81,14 @@ namespace och
 			node nodes[table_capacity];
 		};
 
+	public:
+
+		static constexpr size_t table_bytes = sizeof(node_hashtable);
+
 		//DATA
 
 	private:
+
 		node_hashtable* const table = new node_hashtable;
 
 		uint32_t root_idx = 0;
@@ -90,6 +100,7 @@ namespace och
 		//FUNCTIONS
 
 	public:
+
 		~h_octree()
 		{
 			delete[] table;
@@ -123,9 +134,10 @@ namespace och
 
 				index = (index + 1) & (table_capacity - 1);
 			}
-			OCH_IF_DEBUG(++nodecnt; ++fillcnt;)
 
-				table->cashes[index] = cash;
+			OCH_IF_DEBUG(++nodecnt; ++fillcnt);
+
+			table->cashes[index] = cash;
 
 			table->nodes[index] = n;
 
@@ -138,14 +150,42 @@ namespace och
 		{
 			--table->refcounts[idx - 1];
 
-			OCH_IF_DEBUG(--nodecnt;)
+			OCH_IF_DEBUG(--nodecnt);
 
-				if (!table->refcounts[idx - 1])
+			if (!table->refcounts[idx - 1])
+			{
+				OCH_IF_DEBUG(--fillcnt);
+
+				table->cashes[idx - 1] = 0;
+			}
+		}
+
+		void set(int x, int y, int z, uint32_t v)
+		{
+			uint32_t curr = root_idx;
+
+			
+		}
+
+		int32_t at(int x, int y, int z)
+		{
+			uint64_t index = och::z_encode_16(x, y, z);
+
+			uint32_t curr = root_idx;//Root
+
+			for (int i = depth - 1; i > 0; --i)
+			{
+				int node_idx = (index >> (3 * i)) & 7;
+
+				if (!table[curr - 1].children[node_idx])
 				{
-					OCH_IF_DEBUG(--fillcnt;);
-
-					table->cashes[idx - 1] = 0;
+					return 0;
 				}
+
+				curr = table[curr - 1].children[node_idx];
+			}
+
+			return table[curr - 1].children[index & 7];
 		}
 
 		void set_root(uint32_t idx)

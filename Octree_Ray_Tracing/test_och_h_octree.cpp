@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <random>
 #include <chrono>
-#include <random>
+#include <cstdio>
 
 #include "och_vec.h"
 #include "och_tree_helper.h"
@@ -17,17 +17,12 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
-typedef och::h_octree<22, 8> tree_t;
-
-constexpr bool is_norm = true;
+typedef och::h_octree<19, 12> tree_t;
 
 constexpr int screen_size_x = 640, screen_size_y = 360;
 constexpr int pixel_size_x = 2, pixel_size_y = 2;
 
-constexpr int octree_depth = 8;
-constexpr int octree_dim = 1 << octree_depth;
-
-constexpr olc::Pixel colours[8] {
+const olc::Pixel colours[8] {
 
 	{ 0xE5, 0x8F, 0x27 },		//x_pos
 	{ 0x4E, 0x61, 0x11 },		//y_pos
@@ -48,11 +43,6 @@ constexpr olc::Pixel colours[8] {
 	//{ 0x3F, 0x19, 0x07 },		//inside
 	//{ 0x77, 0xFF, 0xB9 },		//exit
 	//{ 0xE1, 0x07, 0xBC }		//error
-};
-
-constexpr olc::Pixel voxel_colours[2] {
-	{ 0x77, 0xFF, 0xB9 },		//air
-	{ 0x3F, 0x19, 0x07 }		//active
 };
 
 OpenSimplexNoise terrain_noise(8789);
@@ -166,7 +156,7 @@ struct tree_camera
 		constexpr int cx = screen_size_x / 2 - 1;
 		constexpr int cy = screen_size_y / 2 - 1;
 
-		constexpr olc::Pixel crosshair_col = { 70, 30, 0 };
+		const olc::Pixel crosshair_col(70, 30, 0);
 
 		at(cx - 1, cy - 2) = crosshair_col;
 		at(cx, cy - 2) = crosshair_col;
@@ -365,33 +355,35 @@ public:
 
 
 
-int get_terrain_heigth(int x, int y)
+int get_terrain_heigth(int x, int y, size_t dim)
 {
-	return static_cast<int>(terrain_noise.Evaluate((static_cast<float>(x * 4) / octree_dim), (static_cast<float>(y * 4) / octree_dim)) * octree_dim / 16 + octree_dim / 2);
+	return static_cast<int>(terrain_noise.Evaluate((static_cast<float>(x * 4) / dim), (static_cast<float>(y * 4) / dim)) * dim / 16 + dim / 2);
 }
 
-struct tree_initializer
+struct heightmap
 {
-	uint16_t* data = new uint16_t[octree_dim * octree_dim];
+	size_t dim;
+
+	uint16_t* data = new uint16_t[dim * dim];
 
 	uint16_t at(int x, int y) const
 	{
-		return data[y * octree_dim + x];
+		return data[y * dim + x];
 	}
 
 	uint16_t& get(int x, int y)
 	{
-		return data[y * octree_dim + x];
+		return data[y * dim + x];
 	}
 
-	tree_initializer()
+	heightmap(int dim) : dim(dim)
 	{
-		for(int y = 0; y < octree_dim; ++y)
-			for (int x = 0; x < octree_dim; ++x)
-				get(x, y) = get_terrain_heigth(x, y);
+		for(int y = 0; y < dim; ++y)
+			for (int x = 0; x < dim; ++x)
+				get(x, y) = get_terrain_heigth(x, y, dim);
 	}
 
-	~tree_initializer()
+	~heightmap()
 	{
 		delete[] data;
 	}
@@ -402,7 +394,7 @@ uint32_t get_leaf_val()
 	return 1; //(std::rand() & 0b1111111111) + 1;
 }
 
-uint32_t create_node(const int x, const int y, const int z, const int depth, const tree_initializer& heights, tree_t& tree)
+uint32_t create_node(const int x, const int y, const int z, const int depth, const heightmap& heights, tree_t& tree)
 {
 	const int dim = 1 << depth;
 
@@ -456,16 +448,16 @@ ACTIVE:
 
 void test_och_h_octree()
 {
+	printf("\nEntered test_och_h_octree...\n");
+
 	tree_t tree;
 
 	tree_window window(tree);
 
-	std::cout << "test_och_hashed_octree...\n";
-
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
 	{
-		tree_initializer heightfield;
+		heightmap heightfield(tree.dim);
 	
 		tree.set_root(create_node(0, 0, 0, tree.depth, heightfield, tree));
 	}
@@ -484,12 +476,14 @@ void test_och_h_octree()
 
 	printf("\nCompression-ratio: %f\n", (float)tree.get_nodecnt() / tree.get_fillcnt());
 
-	printf("\nRequired size in memory: %s\n", och::abbreviate_byte_size(static_cast<size_t>(tree.get_fillcnt()) * 35).c_str());
+	printf("\nRequired size in memory: %s\n", och::abbreviate_byte_size(static_cast<size_t>(tree.get_fillcnt()) * 37).c_str());
 
 	printf("\nUncompressed size: %s\n", och::abbreviate_byte_size(static_cast<size_t>(tree.get_nodecnt()) * 32).c_str());
+
+	printf("\nTable-size: %s\n", och::abbreviate_byte_size(tree.table_bytes).c_str());
 
 	if (window.Construct(screen_size_x, screen_size_y, pixel_size_x, pixel_size_y))
 		window.Start();
 
-	std::cout << "\nexited test_och_hashed_octree\n";
+	printf("\nExited test_och_hashed_octree\n");
 }
