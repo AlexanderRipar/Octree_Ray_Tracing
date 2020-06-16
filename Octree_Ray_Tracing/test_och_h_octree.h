@@ -1,3 +1,3 @@
 #pragma once
 
-void test_och_hashed_octree();
+void test_och_h_octree();

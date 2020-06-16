@@ -1,5 +1,7 @@
 #include "test_och_h_octree.h"
 
+#include "och_h_octree.h"
+
 #include <cstdint>
 #include <random>
 #include <chrono>
@@ -7,7 +9,6 @@
 
 #include "och_vec.h"
 #include "och_tree_helper.h"
-#include "och_h_octree.h"
 #include "och_string_util.h"
 
 #include "opensimplex.h"
@@ -16,7 +17,7 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
-typedef och::h_octree<22, 8> h_tree;
+typedef och::h_octree<22, 8> tree_t;
 
 constexpr bool is_norm = true;
 
@@ -57,7 +58,7 @@ constexpr olc::Pixel voxel_colours[2] {
 OpenSimplexNoise terrain_noise(8789);
 
 
-struct h_octree_camera
+struct tree_camera
 {
 	static constexpr float delta_dir = 1.0F;
 
@@ -65,7 +66,7 @@ struct h_octree_camera
 
 	float speed = 0.0078125F;												//1/128
 
-	const h_tree& tree;
+	const tree_t& tree;
 
 	och::float3* rays = new och::float3[screen_size_x * screen_size_y];
 	olc::Pixel* img = new olc::Pixel[screen_size_x * screen_size_y];
@@ -76,9 +77,9 @@ struct h_octree_camera
 
 	och::float3 pos{ 1.5F ,1.5F, 1.5F };
 
-	h_octree_camera(const h_tree& tree) : tree{ tree } {}
+	tree_camera(const tree_t& tree) : tree{ tree } {}
 
-	~h_octree_camera()
+	~tree_camera()
 	{
 		delete[] rays;
 		delete[] img;
@@ -206,18 +207,15 @@ struct h_octree_camera
 	}
 };
 
-class h_octree_window : public olc::PixelGameEngine
+class tree_window : public olc::PixelGameEngine
 {
 public:
 
-	h_octree_camera camera;
+	tree_camera camera;
 
-	h_tree& tree;
+	tree_t& tree;
 
-	h_octree_window(h_tree& tree) : tree{ tree }, camera{ tree }
-	{
-		sAppName = "VVV - (Vx Volume Visualisation)";
-	}
+	tree_window(tree_t& tree) : tree{ tree }, camera{ tree } { sAppName = "VVV - (Vx Volume Visualisation)"; }
 
 	bool OnUserCreate() override
 	{
@@ -372,41 +370,6 @@ int get_terrain_heigth(int x, int y)
 	return static_cast<int>(terrain_noise.Evaluate((static_cast<float>(x * 4) / octree_dim), (static_cast<float>(y * 4) / octree_dim)) * octree_dim / 16 + octree_dim / 2);
 }
 
-uint32_t create_node_try4_inline(int x, int y, int z, int depth, h_tree& tree)
-{
-	h_tree::node node;
-
-	int nx = x << 1, ny = y << 1, nz = z << 1;
-
-	if (depth == 1)
-	{
-		node.children[0] = get_terrain_heigth(nx    , ny    ) == nz    ;
-		node.children[1] = get_terrain_heigth(nx + 1, ny    ) == nz    ;
-		node.children[2] = get_terrain_heigth(nx    , ny + 1) == nz    ;
-		node.children[3] = get_terrain_heigth(nx + 1, ny + 1) == nz    ;
-		node.children[4] = get_terrain_heigth(nx    , ny    ) == nz + 1;
-		node.children[5] = get_terrain_heigth(nx + 1, ny    ) == nz + 1;
-		node.children[6] = get_terrain_heigth(nx    , ny + 1) == nz + 1;
-		node.children[7] = get_terrain_heigth(nx + 1, ny + 1) == nz + 1;
-	}
-	else
-	{
-		node.children[0] = create_node_try4_inline(nx    , ny    , nz    , depth - 1, tree);
-		node.children[1] = create_node_try4_inline(nx + 1, ny    , nz    , depth - 1, tree);
-		node.children[2] = create_node_try4_inline(nx    , ny + 1, nz    , depth - 1, tree);
-		node.children[3] = create_node_try4_inline(nx + 1, ny + 1, nz    , depth - 1, tree);
-		node.children[4] = create_node_try4_inline(nx    , ny    , nz + 1, depth - 1, tree);
-		node.children[5] = create_node_try4_inline(nx + 1, ny    , nz + 1, depth - 1, tree);
-		node.children[6] = create_node_try4_inline(nx    , ny + 1, nz + 1, depth - 1, tree);
-		node.children[7] = create_node_try4_inline(nx + 1, ny + 1, nz + 1, depth - 1, tree);
-	}
-
-	if (node.is_zero())
-		return 0;
-
-	return tree.register_node(node);
-}
-
 struct tree_initializer
 {
 	uint16_t* data = new uint16_t[octree_dim * octree_dim];
@@ -439,11 +402,11 @@ uint32_t get_leaf_val()
 	return 1; //(std::rand() & 0b1111111111) + 1;
 }
 
-uint32_t create_node_try7(const int x, const int y, const int z, const int depth, const tree_initializer& heights, h_tree& tree)
+uint32_t create_node(const int x, const int y, const int z, const int depth, const tree_initializer& heights, tree_t& tree)
 {
 	const int dim = 1 << depth;
 
-	h_tree::node node;
+	tree_t::node node;
 
 	for(int _y = 0; _y < dim; ++_y)
 		for (int _x = 0; _x < dim; ++_x)
@@ -462,14 +425,14 @@ ACTIVE:
 
 	if (depth != 1)//No leaf yet...
 	{
-		node.children[0] = create_node_try7(x           , y           , z           , depth - 1, heights, tree);
-		node.children[1] = create_node_try7(x + half_dim, y           , z           , depth - 1, heights, tree);
-		node.children[2] = create_node_try7(x           , y + half_dim, z           , depth - 1, heights, tree);
-		node.children[3] = create_node_try7(x + half_dim, y + half_dim, z           , depth - 1, heights, tree);
-		node.children[4] = create_node_try7(x           , y           , z + half_dim, depth - 1, heights, tree);
-		node.children[5] = create_node_try7(x + half_dim, y           , z + half_dim, depth - 1, heights, tree);
-		node.children[6] = create_node_try7(x           , y + half_dim, z + half_dim, depth - 1, heights, tree);
-		node.children[7] = create_node_try7(x + half_dim, y + half_dim, z + half_dim, depth - 1, heights, tree);
+		node.children[0] = create_node(x           , y           , z           , depth - 1, heights, tree);
+		node.children[1] = create_node(x + half_dim, y           , z           , depth - 1, heights, tree);
+		node.children[2] = create_node(x           , y + half_dim, z           , depth - 1, heights, tree);
+		node.children[3] = create_node(x + half_dim, y + half_dim, z           , depth - 1, heights, tree);
+		node.children[4] = create_node(x           , y           , z + half_dim, depth - 1, heights, tree);
+		node.children[5] = create_node(x + half_dim, y           , z + half_dim, depth - 1, heights, tree);
+		node.children[6] = create_node(x           , y + half_dim, z + half_dim, depth - 1, heights, tree);
+		node.children[7] = create_node(x + half_dim, y + half_dim, z + half_dim, depth - 1, heights, tree);
 	}
 	else//Leaf
 	{
@@ -491,11 +454,11 @@ ACTIVE:
 
 
 
-void test_och_hashed_octree()
+void test_och_h_octree()
 {
-	h_tree tree;
+	tree_t tree;
 
-	h_octree_window window(tree);
+	tree_window window(tree);
 
 	std::cout << "test_och_hashed_octree...\n";
 
@@ -504,7 +467,7 @@ void test_och_hashed_octree()
 	{
 		tree_initializer heightfield;
 	
-		tree.set_root(create_node_try7(0, 0, 0, tree.depth, heightfield, tree));
+		tree.set_root(create_node(0, 0, 0, tree.depth, heightfield, tree));
 	}
 
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
