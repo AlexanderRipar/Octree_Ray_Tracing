@@ -118,10 +118,19 @@ namespace och
 
 			uint32_t index = hash & idx_mask;
 
-			uint8_t cash = static_cast<uint8_t>((hash >> log2_table_capacity) | 1);
+			uint8_t cash = static_cast<uint8_t>(hash >> log2_table_capacity);
+
+			if (cash == 0)//Avoid empty
+				cash = 1;
+			else if (cash == 0xFF)//Avoid Gravestone
+				cash = 0x7F;
+
+			uint32_t last_grave = -1;
 
 			while (table->cashes[index])
 			{
+				if (table->cashes[index] == 0xFF)
+					last_grave = index;
 				if (table->cashes[index] == cash)
 					if (table->nodes[index] == n)
 					{
@@ -136,6 +145,9 @@ namespace och
 			}
 
 			OCH_IF_DEBUG(++nodecnt; ++fillcnt);
+
+			if (last_grave != -1)
+				index = last_grave;
 
 			table->cashes[index] = cash;
 
@@ -156,15 +168,60 @@ namespace och
 			{
 				OCH_IF_DEBUG(--fillcnt);
 
-				table->cashes[idx - 1] = 0;
+				table->cashes[idx - 1] = 0xFF;//Gravestone
 			}
 		}
 
 		void set(int x, int y, int z, uint32_t v)
 		{
-			uint32_t curr = root_idx;
+			uint64_t index = och::z_encode_16(x, y, z);
 
-			
+			uint32_t stk[depth];
+
+			int d = depth - 1;
+
+			while (uint32_t curr = root_idx; curr && d >= 0)
+			{
+				int c_idx = (index >> (3 * d)) & 7;
+
+				stk[d--] = curr;
+
+				curr = table->nodes[curr - 1].children[c_idx];
+			}
+
+			uint32_t child = v;
+
+			int _d = 0;
+
+			if (d >= 0)
+				return;
+			else
+				while (_d != d)
+				{
+					node n{ 0, 0, 0, 0, 0, 0, 0, 0 };
+
+					int c_idx = (index >> (3 * _d++)) & 7;
+
+					n.children[c_idx] = child;
+
+					child = register_node(n);
+				}
+
+			for (int i = d; i != depth; ++i)
+			{
+				remove_node(stk[i]);
+
+				node n = table->nodes[stk[i]];
+
+				int c_idx = (index >> (3 * i)) & 7;
+
+				n.children[c_idx] = child;
+
+				if (n.is_zero())
+					child = 0;
+				else
+					child = register_node(n);
+			}
 		}
 
 		int32_t at(int x, int y, int z)
@@ -173,7 +230,7 @@ namespace och
 
 			uint32_t curr = root_idx;//Root
 
-			for (int i = depth - 1; i > 0; --i)
+			for (int i = depth - 1; i != 0; --i)
 			{
 				int node_idx = (index >> (3 * i)) & 7;
 
@@ -251,7 +308,7 @@ namespace och
 
 			__m128 _dim_bit = _mm_castsi128_ps(_mm_set1_epi32(1 << 22));					//Bit used for masking / adding / subtracting. It corresponds to the mantissa-bit for child-dimension
 
-			uint32_t parents[13];															//Stack of parent-voxels for restoring on pop
+			uint32_t parents[depth - 1];													//Stack of parent-voxels for restoring on pop
 
 			uint32_t* curr_paren = parents;													//Pointer to current parent in parent-stack
 
@@ -357,7 +414,7 @@ namespace och
 				return;
 			}
 
-			node_idx = *(--curr_paren);															//Restore parent-node from parent-stack
+			node_idx = *(--curr_paren);														//Restore parent-node from parent-stack
 
 			_pos = _mm_andnot_ps(_dim_bit, _pos);											//Restore parent-position
 
@@ -377,7 +434,7 @@ namespace och
 			sse_trace(o.x, o.y, o.z, d.x, d.y, d.z, hit_direction, hit_voxel, hit_time);
 		}
 
-		void avx_trace(const float* ox, const float* oy, const float* oz, const float* dx, const float* dy, const float* dz, direction* hit_direction, uint32_t* hit_voxel, float* hit_time) const
+		/*void avx_trace(const float* ox, const float* oy, const float* oz, const float* dx, const float* dy, const float* dz, direction* hit_direction, uint32_t* hit_voxel, float* hit_time) const
 		{
 			const __m256 _zero = _mm256_setzero_ps();
 			const __m256 _sbit = _mm256_set1_ps(-0.0F);
@@ -421,6 +478,6 @@ namespace och
 			int idx_z = _mm256_movemask_ps(_mm256_cmp_ps(_pz, _one_point_five, 0);
 
 			int idx = och::z_encode_8(signs_x, signs_y, signs_z);
-		}
+		}*/
 	};
 }
