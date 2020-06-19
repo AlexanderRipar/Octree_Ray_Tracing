@@ -511,7 +511,7 @@ namespace olc // All OneLoneCoder stuff will now exist in the "olc" namespace
 	public: // Branding
 		std::string sAppName;
 
-	private: // Inner mysterious workings
+	//private: // Inner mysterious workings
 		Sprite* pDefaultDrawTarget = nullptr;
 		Sprite* pDrawTarget = nullptr;
 		Pixel::Mode	nPixelMode = Pixel::NORMAL;

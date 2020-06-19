@@ -108,7 +108,7 @@ namespace och
 
 		uint32_t register_node(const node& n)
 		{
-			if (fillcnt > static_cast<int>((table_capacity * 0.9375F)))
+			if (fillcnt > static_cast<uint32_t>((table_capacity * 0.9375F)))
 			{
 				printf("\ntabled nodes: %i\n=> Table too full. Exiting...\n", fillcnt);
 				exit(0);
@@ -180,11 +180,11 @@ namespace och
 
 			int d = depth - 1;
 
-			while (uint32_t curr = root_idx; curr && d >= 0)
+			for (uint32_t curr = root_idx; curr && d >= 0; --d)
 			{
 				int c_idx = (index >> (3 * d)) & 7;
 
-				stk[d--] = curr;
+				stk[d] = curr;
 
 				curr = table->nodes[curr - 1].children[c_idx];
 			}
@@ -193,9 +193,11 @@ namespace och
 
 			int _d = 0;
 
-			if (d >= 0)
-				return;
-			else
+			if (++d)
+			{
+				if (!v)
+					return;
+
 				while (_d != d)
 				{
 					node n{ 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -206,12 +208,13 @@ namespace och
 
 					child = register_node(n);
 				}
+			}
 
 			for (int i = d; i != depth; ++i)
 			{
 				remove_node(stk[i]);
 
-				node n = table->nodes[stk[i]];
+				node n = table->nodes[stk[i] - 1];
 
 				int c_idx = (index >> (3 * i)) & 7;
 
@@ -222,6 +225,8 @@ namespace och
 				else
 					child = register_node(n);
 			}
+
+			set_root(child);
 		}
 
 		int32_t at(int x, int y, int z)

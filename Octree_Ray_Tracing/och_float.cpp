@@ -72,12 +72,14 @@ namespace och
 
 	double abs(double f)
 	{
-		return *reinterpret_cast<uint64_t*>(&f) & (static_cast<uint64_t>(-1) >> 1);
+		uint64_t temp = *reinterpret_cast<uint64_t*>(&f) & (static_cast<uint64_t>(-1) >> 1);
+		return *reinterpret_cast<double*>(&temp);
 	}
 
 	long double abs(long double f)
 	{
-		return *reinterpret_cast<uint64_t*>(&f) & (static_cast<uint64_t>(-1) >> 1);
+		uint64_t temp = *reinterpret_cast<uint64_t*>(&f) & (static_cast<uint64_t>(-1) >> 1);
+		return *reinterpret_cast<long double*>(&temp);
 	}
 
 	float sgn(float f)
@@ -89,7 +91,7 @@ namespace och
 
 	float sign_mask(float f)
 	{
-		return float_as_u32(f) & (1 << 31);
+		return u32_as_float(float_as_u32(f) & (1 << 31));
 	}
 
 	int8_t sgn_i8(float f)
