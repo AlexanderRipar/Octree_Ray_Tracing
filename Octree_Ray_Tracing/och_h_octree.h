@@ -25,6 +25,7 @@ namespace och
 		static constexpr int dim = 1 << Depth;
 		static constexpr int log2_table_capacity = Log2_table_capacity;
 		static constexpr int table_capacity = 1 << Log2_table_capacity;
+		static constexpr float voxel_dim = 1.0F / dim;
 
 	private:
 
@@ -172,14 +173,18 @@ namespace och
 			}
 		}
 
-		void set(int x, int y, int z, uint32_t v)
+		void set(uint16_t x, uint16_t y, uint16_t z, uint32_t v)
 		{
+			if ((x | y | z) >= dim)
+				return;
+
 			uint64_t index = och::z_encode_16(x, y, z);
 
 			uint32_t stk[depth];
 
 			int d = depth - 1;
 
+			//Build stack of nonzero nodes, starting from root, terminating at leaf/null
 			for (uint32_t curr = root_idx; curr && d >= 0; --d)
 			{
 				int c_idx = (index >> (3 * d)) & 7;
@@ -193,6 +198,7 @@ namespace och
 
 			int _d = 0;
 
+			//If the stack did not reach leaf: starting at leaf, work up to (excluding) last nonnull node and insert them into table
 			if (++d)
 			{
 				if (!v)
@@ -210,6 +216,7 @@ namespace och
 				}
 			}
 
+			//Delete, modify, and reinsert nodes from stack
 			for (int i = d; i != depth; ++i)
 			{
 				remove_node(stk[i]);
@@ -229,7 +236,7 @@ namespace och
 			set_root(child);
 		}
 
-		int32_t at(int x, int y, int z)
+		uint32_t at(int x, int y, int z)
 		{
 			uint64_t index = och::z_encode_16(x, y, z);
 
@@ -239,20 +246,25 @@ namespace och
 			{
 				int node_idx = (index >> (3 * i)) & 7;
 
-				if (!table[curr - 1].children[node_idx])
+				if (!table->nodes[curr - 1].children[node_idx])
 				{
 					return 0;
 				}
 
-				curr = table[curr - 1].children[node_idx];
+				curr = table->nodes[curr - 1].children[node_idx];
 			}
 
-			return table[curr - 1].children[index & 7];
+			return table->nodes[curr - 1].children[index & 7];
 		}
 
 		void set_root(uint32_t idx)
 		{
 			root_idx = idx;
+		}
+
+		uint32_t get_root()
+		{
+			return root_idx;
 		}
 
 		uint32_t get_fillcnt() const
@@ -393,7 +405,7 @@ namespace och
 				_min_mask = _z_mask;
 			}
 
-			__m128 _pos_decr;																//Declared ahead of goto to avoid intellisense complaining; Should not (significantly) influence generated code
+			__m128 _pos_decr;																//Declared ahead of goto to shut up intellisense; Should not (significantly) influence generated code
 
 			if (!(idx & min_t_idx))
 				goto POP;

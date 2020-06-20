@@ -37,6 +37,16 @@ namespace och
 			return { x - v.x, y - v.y, z - v.z };
 		}
 
+		vec3<T> operator+(T& s) const
+		{
+			return { x + s, y + s, z + s };
+		}
+
+		vec3<T> operator-(T& s) const
+		{
+			return { x - s, y - s, z - s };
+		}
+
 		void operator+=(const vec3<T>& v)
 		{
 			x += v.x;
