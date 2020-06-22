@@ -91,5 +91,8 @@
     <Text Include="voxels.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="noise.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

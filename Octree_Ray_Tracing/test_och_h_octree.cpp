@@ -29,29 +29,6 @@ constexpr int screen_size_y = 360 * (2 - is_half_res);
 constexpr int pixel_size_x  = 1 + is_half_res;
 constexpr int pixel_size_y  = 1 + is_half_res;
 
-const olc::Pixel colours[8] {
-
-	{ 0xC5, 0x8F, 0x27 },		//x_pos
-	{ 0x4E, 0x61, 0x11 },		//y_pos
-	{ 0x63, 0x75, 0x13 },		//z_pos
-	{ 0x3D, 0x56, 0x20 },		//x_neg
-	{ 0x4E, 0x61, 0x11 },		//y_neg
-	{ 0x63, 0x75, 0x13 },		//z_neg
-	{ 0x00, 0xBF, 0xFE },		//exit
-	{ 0x3F, 0x19, 0x07 },		//inside
-
-	//Contrast colour-scheme
-	//{ 0xFF, 0x00, 0x00 },		//x_pos
-	//{ 0x7F, 0x00, 0x00 },		//x_neg
-	//{ 0x00, 0xFF, 0x00 },		//y_pos
-	//{ 0x00, 0x7F, 0x00 },		//y_neg
-	//{ 0x00, 0x00, 0xFF },		//z_pos
-	//{ 0x00, 0x00, 0x7F },		//z_neg
-	//{ 0x3F, 0x19, 0x07 },		//inside
-	//{ 0x77, 0xFF, 0xB9 },		//exit
-	//{ 0xE1, 0x07, 0xBC }		//error
-};
-
 OpenSimplexNoise terrain_noise(8789);
 
 struct tree_camera
@@ -106,7 +83,7 @@ struct tree_camera
 		else if (hit_direction == och::direction::inside)
 			return inside_colour;
 
-		return reinterpret_cast<olc::Pixel*>(voxels.colours)[6 * (hit_voxel - 1) + static_cast<uint32_t>(hit_direction)];
+		return reinterpret_cast<const olc::Pixel*>(voxels.colours)[6 * (hit_voxel - 1) + static_cast<uint32_t>(hit_direction)];
 	}
 
 	void update_position()
@@ -467,10 +444,12 @@ public:
 
 	long long update_image()
 	{
+		const olc::Pixel exit_colour{ 0x00, 0xBF, 0xFE };
+
 		if (!tree.get_root())
 			for (int y = 0; y < ScreenHeight(); ++y)
 				for (int x = 0; x < ScreenWidth(); ++x)
-					Draw(x, y, colours[6]);
+					Draw(x, y, exit_colour);
 
 		std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
 
@@ -796,9 +775,18 @@ void test_och_h_octree()
 {
 	printf("\nEntered test_och_h_octree...\n");
 
-	printf("\nReading voxel data\n");
+	std::string voxel_loading_errmsg;
 
-	och::voxel_data voxels = och::read_voxel_data("voxels.txt");
+	och::voxel_data voxels("voxels.txt", voxel_loading_errmsg);
+
+	if (voxel_loading_errmsg.size())
+	{
+		printf("\n%s\n", voxel_loading_errmsg.c_str());
+
+		printf("\n...Exited test_och_hashed_octree\n");
+
+		return;
+	}
 
 	printf("\nRead data for %i voxels\n", voxels.voxel_cnt);
 
@@ -849,5 +837,5 @@ void test_och_h_octree()
 	else
 		printf("\nCould not open window\n");
 
-	printf("\nExited test_och_hashed_octree\n");
+	printf("\n...Exited test_och_hashed_octree\n");
 }

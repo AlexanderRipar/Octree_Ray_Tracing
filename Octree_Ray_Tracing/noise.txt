@@ -1,0 +1,41 @@
+//The file starts out with definitions of noise-functions in the following form:
+
+noise
+{
+	noisetype = Fractal									//Type of the noise function; Perlin, Simplex, Worley, etc. Case-insensitive. These are built-in
+	conditon = AND EQ v Dirt LT n 5.0					//Condition under which the function is considered "active" at a point operators are lt
+	returner = 
+		GT z 5: Wood										//In case condition holds true, this decides which voxel-value is returned
+		GT z 7:
+		(
+			LT n 3.0: Stone
+			EQ n 4.0: Dark_stone
+		)
+		Grass
+			
+	frequency											//frequency of underlying noise-function
+	seed = 855810										//Seed of underlying noise-function. 'TIME' indicates that time is to be used. '?' indicates that it is left to the process. WORLD indicates that the worldseed is to be used
+}
+
+solid
+{
+	...
+}
+
+grass
+{
+...
+}
+
+surface_features{ ... }
+
+caves{
+	...
+}
+
+//Everything after this ':' is considered to be the instructions for generating the actual terrain. Here, the tree is populated using the previously defined noise-functions, in the order they appear
+terrain:
+	solid
+	grass
+	surface_features
+	caves

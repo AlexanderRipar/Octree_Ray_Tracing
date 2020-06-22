@@ -39,25 +39,32 @@ namespace och
 
 	struct name
 	{
-		static constexpr int max_len = 16;
+		static constexpr int max_len = 15;
 
-		char str[max_len];
+		char str[max_len + 1];
 	};
 
 	struct voxel_data
 	{
-		voxel_data(int voxel_cnt) : voxel_cnt{ voxel_cnt }, colours{ new pixel[6 * voxel_cnt] }, names{ new name[voxel_cnt] } {}
+		const int voxel_cnt;
+		pixel* const colours;
+		name* const names;
 
-		~voxel_data()
+		const pixel* const get_colours() const
 		{
-			delete[] colours;
-			delete[] names;
+			return colours;
 		}
 
-		int voxel_cnt = 0;
-		pixel* colours;
-		name* names;
+		const name* get_names() const
+		{
+			return names;
+		}
+
+		voxel_data(const std::string& filename, std::string& errmsg);
+
+		~voxel_data();
+
 	};
 
-	voxel_data read_voxel_data(const std::string& filename);
+	voxel_data read_voxel_data(const std::string& filename, std::string& errormsg);
 }
