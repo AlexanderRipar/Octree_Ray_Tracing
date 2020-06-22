@@ -12,6 +12,7 @@
 #include "och_vec.h"
 #include "och_tree_helper.h"
 #include "och_string_util.h"
+#include "och_voxel.h"
 
 #include "opensimplex.h"
 
@@ -53,7 +54,6 @@ const olc::Pixel colours[8] {
 
 OpenSimplexNoise terrain_noise(8789);
 
-
 struct tree_camera
 {
 	static constexpr float delta_dir_keboard = 1.0F;
@@ -65,6 +65,8 @@ struct tree_camera
 
 	const tree_t& tree;
 
+	const och::voxel_data& voxels;
+
 	och::float3* rays = new och::float3[screen_size_x * screen_size_y];
 
 	bool is_flying_camera = true;
@@ -73,7 +75,7 @@ struct tree_camera
 
 	och::float3 pos{ 1.5F ,1.5F, 1.5F };
 
-	tree_camera(const tree_t& tree) : tree{ tree } {}
+	tree_camera(const tree_t& tree, const och::voxel_data& voxels) : tree{ tree }, voxels{ voxels } {}
 
 	~tree_camera()
 	{
@@ -94,7 +96,17 @@ struct tree_camera
 
 		//return = hit_time == 0.0F ? olc::BLACK : olc::Pixel( (uint8_t)(hit_time * 255), (uint8_t)(hit_time * 1023), (uint8_t)(hit_time * 2047));
 
-		return colours[static_cast<int>(hit_direction)];
+		//return colours[static_cast<int>(hit_direction)];
+
+		const olc::Pixel exit_colour{ 0x00, 0xBF, 0xFE };
+		const olc::Pixel inside_colour{ 0x3F, 0x19, 0x07 };
+
+		if (hit_direction == och::direction::exit)
+			return exit_colour;
+		else if (hit_direction == och::direction::inside)
+			return inside_colour;
+
+		return reinterpret_cast<olc::Pixel*>(voxels.colours)[6 * (hit_voxel - 1) + static_cast<uint32_t>(hit_direction)];
 	}
 
 	void update_position()
@@ -159,9 +171,11 @@ public:
 
 	static constexpr float max_interact_dist = 0.5F;
 
-	tree_camera camera;
-
 	tree_t& tree;
+
+	const och::voxel_data& voxels;
+
+	tree_camera camera;
 
 	bool is_debug = true;
 
@@ -169,7 +183,7 @@ public:
 	och::vec3f measure_1{ -1.0F, -1.0F, -1.0F };
 	std::string measure_output;
 
-	tree_window(tree_t& tree) : tree{ tree }, camera{ tree } { sAppName = "VVV - (Vx Volume Visualisation)"; }
+	tree_window(tree_t& tree, const och::voxel_data& voxels) : tree{ tree }, voxels{ voxels }, camera{ tree, voxels } { sAppName = "VVV - (Vx Volume Visualisation)"; }
 
 	bool OnUserCreate() override
 	{
@@ -268,45 +282,57 @@ public:
 
 	}
 
-	void update_text(long long trace_time)
+	void update_text(long long trace_time, const och::float3& dir3, const och::float3& offset, float hit_dst, uint32_t hit_vox, och::direction hit_dir)
 	{
 		if (GetKey(olc::Key::O).bPressed)
 			is_debug = !is_debug;
 
 		if (is_debug)
 		{
+			//Handle "Looking at"
+			och::float3 collision_pos = camera.pos + (dir3 * hit_dst) + offset;
+
+			collision_pos.x -= 1.0F;
+			collision_pos.y -= 1.0F;
+			collision_pos.z -= 1.0F;
+
+			uint16_t collision_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
+			uint16_t collision_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
+			uint16_t collision_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
+
+			std::string looking_at_str;
+
+			looking_at_str = hit_vox ? "[" + std::to_string(collision_x) + ", " + std::to_string(collision_y) + ", " + std::to_string(collision_z) + "]: " + voxels.names[hit_vox - 1].str : "Air";
+
+			//Handle "facing"
+			float dir_x = abs(dir3.x);
+			float dir_y = abs(dir3.y);
+			float dir_z = abs(dir3.z);
+
+			std::string facing_str = std::to_string(dir3.x) + ", " + std::to_string(dir3.y) + ", " + std::to_string(dir3.z);
+
+			if (dir_x >= dir_y && dir_x >= dir_z)
+				facing_str += dir3.x < 0 ? " (-x)" : " (+x)";
+			else if (dir_y > dir_x && dir_y >= dir_z)
+				facing_str += dir3.y < 0 ? " (-y)" : " (+y)";
+			else
+				facing_str += dir3.z < 0 ? " (-z)" : " (+z)";
+
+			//Output
 			DrawString(txt_beg_x, txt_beg_y + txt_incr * 0, std::to_string(trace_time) + " ms");
 			DrawString(txt_beg_x, txt_beg_y + txt_incr * 1, "tabled nodes: " + std::to_string(tree.get_fillcnt()));
 			DrawString(txt_beg_x, txt_beg_y + txt_incr * 2, "active nodes: " + std::to_string(tree.get_nodecnt()));
 			DrawString(txt_beg_x, txt_beg_y + txt_incr * 3, "memory usage: " + och::abbreviate_byte_size(static_cast<size_t>(tree.get_fillcnt()) * 37));
 			DrawString(txt_beg_x, txt_beg_y + txt_incr * 4, "speed:        " + std::to_string(static_cast<int>(camera.speed * tree.dim)));
+			DrawString(txt_beg_x, txt_beg_y + txt_incr * 5, "facing:       " + facing_str);
+			DrawString(txt_beg_x, txt_beg_y + txt_incr * 6, "Looking at:   " + looking_at_str);
 		}
 
-		DrawString(txt_beg_x, txt_beg_y + txt_incr * 5, measure_output);
+		DrawString(txt_beg_x + txt_incr / 2, txt_beg_y + txt_incr * 7 + txt_incr / 2, measure_output);
 	}
 
-	void user_interaction(const och::float3& dir3)
+	void user_interaction(const och::float3& dir3, const och::float3& offset, och::direction hit_dir, float hit_dst)
 	{
-		float hit_dst;
-
-		och::direction hit_dir;
-
-		uint32_t hit_vox_dump;
-
-		tree.sse_trace(camera.pos, dir3, hit_dir, hit_vox_dump, hit_dst);
-
-		och::float3 offset(0, 0, 0);
-
-		switch (hit_dir)
-		{
-		case och::direction::x_pos: offset.x =  tree.voxel_dim / 2; break;
-		case och::direction::y_pos: offset.y =  tree.voxel_dim / 2; break;
-		case och::direction::z_pos: offset.z =  tree.voxel_dim / 2; break;
-		case och::direction::x_neg: offset.x = -tree.voxel_dim / 2; break;
-		case och::direction::y_neg: offset.y = -tree.voxel_dim / 2; break;
-		case och::direction::z_neg: offset.z = -tree.voxel_dim / 2; break;
-		}
-
 		if (GetMouse(2).bPressed)//If the middle mouse button is pressed...
 		{
 			std::cout << "position (" << camera.pos.x << ", " << camera.pos.y << ", " << camera.pos.z << ")\n";
@@ -404,10 +430,10 @@ public:
 
 			int init_z = z;
 
-			while (tree.at(x, y, z))
+			while (z != tree.dim && tree.at(x, y, z))
 				z++;
 
-			if (init_z != z)
+			if (z != init_z && z != tree.dim)
 				camera.pos.z = static_cast<float>(z + 1) / tree.dim + 1.0F;
 		}
 
@@ -496,19 +522,43 @@ public:
 
 			och::float3 dir3 = { cosf(camera.dir.x) * cosf(camera.dir.y), sinf(camera.dir.x) * cosf(camera.dir.y), sinf(camera.dir.y) };
 
+			float hit_dst;
+
+			och::direction hit_dir;
+
+			uint32_t hit_vox;
+
+			tree.sse_trace(camera.pos, dir3, hit_dir, hit_vox, hit_dst);
+
+			och::float3 offset(0, 0, 0);
+
+			switch (hit_dir)
+			{
+			case och::direction::x_pos: offset.x = tree.voxel_dim / 2; break;
+			case och::direction::y_pos: offset.y = tree.voxel_dim / 2; break;
+			case och::direction::z_pos: offset.z = tree.voxel_dim / 2; break;
+			case och::direction::x_neg: offset.x = -tree.voxel_dim / 2; break;
+			case och::direction::y_neg: offset.y = -tree.voxel_dim / 2; break;
+			case och::direction::z_neg: offset.z = -tree.voxel_dim / 2; break;
+			}
+
+
+
+
+
 			update_camera_setup();
 
 			update_camera_pos(fElapsedTime, dir3);
 
 			update_camera_dir(fElapsedTime);
 
-			user_interaction(dir3);
+			user_interaction(dir3, offset, hit_dir, hit_dst);
 
 			camera.update_position();
 
 			long long trace_time = update_image();
 
-			update_text(trace_time);
+			update_text(trace_time, dir3, offset, hit_dst, hit_vox, hit_dir);
 		}
 
 		return true;
@@ -687,7 +737,7 @@ uint32_t fill_with(const int x, const int y, const int z, const int depth, tree_
 }
 
 template<typename Noise>
-void nor_with(tree_t& tree, Noise& noise)
+void remove(tree_t& tree, Noise& noise)
 {
 	for (int z = 0; z < tree.dim; ++z)
 		for (int y = 0; y < tree.dim; ++y)
@@ -702,8 +752,9 @@ struct splatter_noise
 	uint32_t active_v;
 	uint32_t inactive_v = 0;
 	float scale;
+	OpenSimplexNoise noise;
 
-	splatter_noise(float threshold, uint32_t active_v, uint32_t inactive_v, float scale = tree_t::voxel_dim) : threshold{ threshold }, active_v{ active_v }, inactive_v{ inactive_v }, scale{ scale } {}
+	splatter_noise(float threshold, uint32_t active_v, uint32_t inactive_v, float scale = tree_t::voxel_dim, int64_t seed = 123456) : threshold{ threshold }, active_v{ active_v }, inactive_v{ inactive_v }, scale{ scale }, noise{ OpenSimplexNoise(seed) } {}
 
 	uint32_t operator()(int x, int y, int z)
 	{
@@ -711,7 +762,7 @@ struct splatter_noise
 		float fy = static_cast<float>(y) * scale;
 		float fz = static_cast<float>(z) * scale;
 
-		float val = terrain_noise.Evaluate(fx, fy, fz);
+		float val = static_cast<float>(terrain_noise.Evaluate(fx, fy, fz));
 
 		return val >= threshold ? active_v : inactive_v;
 	}
@@ -719,13 +770,24 @@ struct splatter_noise
 
 void initialize_h_octree(tree_t& tree)
 {
-	splatter_noise s(-0.4, 1, 0, 1.0F / 16.0F);
+	splatter_noise caverns(-0.6F, 1, 0, 1.0F / 64.0F, 1282);
+	splatter_noise tunnels(-0.4F, 1, 0, 1.0F / 16.0F, 9767564);
 
-	heightmap heightfield(tree.dim);
+	heightmap heights(tree.dim);
 	
-	tree.set_root(create_volume(0, 0, 0, tree.depth, heightfield, tree));
+	tree.set_root(create_volume(0, 0, 0, tree.depth, heights, tree));
 
-	nor_with(tree, s);
+	for (uint16_t y = 0; y < tree.dim; ++y)
+		for (uint16_t x = 0; x < tree.dim; ++x)
+		{
+			uint16_t z = heights.at(x, y);
+			tree.set(x, y, z    , 2 + (std::rand() > RAND_MAX / 2));
+			tree.set(x, y, z - 1, 4);
+			tree.set(x, y, z - 2, 4);
+		}
+
+	//remove(tree, caverns);
+	remove(tree, tunnels);
 }
 
 
@@ -733,6 +795,14 @@ void initialize_h_octree(tree_t& tree)
 void test_och_h_octree()
 {
 	printf("\nEntered test_och_h_octree...\n");
+
+	printf("\nReading voxel data\n");
+
+	och::voxel_data voxels = och::read_voxel_data("voxels.txt");
+
+	printf("\nRead data for %i voxels\n", voxels.voxel_cnt);
+
+	printf("\nConstructing tree\n");
 
 	tree_t tree;
 
@@ -766,7 +836,7 @@ void test_och_h_octree()
 
 	printf("\nUncompressed size: %s\n", och::abbreviate_byte_size(static_cast<size_t>(tree.get_nodecnt()) * 32).c_str());
 
-	tree_window window(tree);
+	tree_window window(tree, voxels);
 
 	if (window.Construct(screen_size_x, screen_size_y, pixel_size_x, pixel_size_y))
 	{

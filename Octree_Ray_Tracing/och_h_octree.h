@@ -111,7 +111,7 @@ namespace och
 		{
 			if (fillcnt > static_cast<uint32_t>((table_capacity * 0.9375F)))
 			{
-				printf("\ntabled nodes: %i\n=> Table too full. Exiting...\n", fillcnt);
+				printf("\ntabled nodes: %i\n=> Table too full. Exiting...%c\n", fillcnt, 7);
 				exit(0);
 			}
 
@@ -426,7 +426,7 @@ namespace och
 
 				hit_voxel = 0;
 
-				hit_time = 0.0F;
+				hit_time = INFINITY;
 
 				return;
 			}

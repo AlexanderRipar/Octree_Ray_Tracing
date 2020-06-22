@@ -18,10 +18,4 @@ namespace och
 		inside = 7,
 		error = 8
 	};
-
-	enum class voxel : voxel_t
-	{
-		air = 0,
-		active = 1
-	};
 }

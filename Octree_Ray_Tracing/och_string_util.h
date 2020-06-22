@@ -11,6 +11,9 @@ namespace och
 
 	std::string abbreviate_byte_size(size_t bytes);
 
+	//Assumes that c is a valid hex-character [0-9] [a-f] [A-F]
+	int unchecked_hexval(char c);
+
 	template<typename T>
 	std::string int_to_binary_str(const T t)
 	{

@@ -54,6 +54,12 @@
     <ClInclude Include="och_fh_tree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="och_voxel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="och_terrain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test_och_h_octree.cpp">
@@ -77,9 +83,12 @@
     <ClCompile Include="och_z_order.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="och_voxel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Text.txt">
+    <Text Include="voxels.txt">
       <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>

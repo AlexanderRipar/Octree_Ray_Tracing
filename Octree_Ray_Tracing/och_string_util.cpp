@@ -56,4 +56,9 @@ namespace och
 
 		return std::to_string(static_cast<float>(bytes * factor)).substr(0, 6) + ' ' + size_magnitude + 'b';
 	}
+
+	int unchecked_hexval(char c)
+	{
+		return (c & 15) + ((c & 64) >> 6) * 9;
+	}
 }

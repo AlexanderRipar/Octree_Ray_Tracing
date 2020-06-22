@@ -25,8 +25,10 @@
     <ClInclude Include="och_h_octree.h" />
     <ClInclude Include="och_octree.h" />
     <ClInclude Include="och_string_util.h" />
+    <ClInclude Include="och_terrain.h" />
     <ClInclude Include="och_tree_helper.h" />
     <ClInclude Include="och_vec.h" />
+    <ClInclude Include="och_voxel.h" />
     <ClInclude Include="och_z_order.h" />
     <ClInclude Include="olcPixelGameEngine.h" />
     <ClInclude Include="opensimplex.h" />
@@ -38,12 +40,13 @@
     <ClCompile Include="och_float.cpp" />
     <ClCompile Include="och_octree.cpp" />
     <ClCompile Include="och_string_util.cpp" />
+    <ClCompile Include="och_voxel.cpp" />
     <ClCompile Include="och_z_order.cpp" />
     <ClCompile Include="test_och_h_octree.cpp" />
     <ClCompile Include="test_och_octree.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Text.txt" />
+    <Text Include="voxels.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

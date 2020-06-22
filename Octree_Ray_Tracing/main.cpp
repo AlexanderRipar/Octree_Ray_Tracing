@@ -6,21 +6,15 @@
 
 #include "test_och_h_octree.h"
 #include "test_och_octree.h"
+#include "och_string_util.h"
+
+#include "och_voxel.h"
 
 int main()
 {
 	test_och_h_octree();
 
 	//test_och_octree();
-
-
-
-
-
-
-
-
-
 
 
 
