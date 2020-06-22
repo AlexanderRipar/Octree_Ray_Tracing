@@ -4,6 +4,12 @@ GENERAL INFO
 	
 	It is currently focused around a compressed, yet dynamic octree-implementation, which can be found
 	in och_h_octree.h.
+	This is inspired by "High Resolution Sparse Voxel DAGs" by Viktor Kämpe, Erik Sintorn and Ulf 
+	Assarson (ACM Transactions on Graphics 34(4), 2013). However, unlike the structure presented in
+	the paper, h_octree can be dynamically edited at runtime, while achieving "ideal" compression for
+	a given topology, regardless of the order of operations performed. This is achieved by using a 
+	reference-stable, reference-counted linear hashtable to store tree-nodes, hence avoiding the need
+	for separately storing identical nodes.
 	
 	The ray-traversal algorithm is an adapted version of the one presented by Samuli Laine and Tero 
 	Karras in the appendix of Efficient Sparse Voxel Octrees: Analysis, Extensions, and Implementation
@@ -48,6 +54,13 @@ KEYBINDS
 
 CUSTOMIZATION
 
-	Customization comes in two varieties: First off, voxels and their colours can be specified in the file
-	"voxels.txt". Secondly, the generated terrain can be defined in "terrain.txt". (This is
-	not implemented yet).
+	First off, voxels and their colours can be specified in the file "voxels.txt". Secondly, the 
+	generated terrain can be defined in "terrain.txt". (This is not implemented yet).
+
+ROADMAP
+
+	Implement terrain-customization
+
+	Make tree center on camera (fh_tree)
+
+	Port tracing to GPU (CUDA)
