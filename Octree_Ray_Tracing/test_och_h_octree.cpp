@@ -302,7 +302,7 @@ public:
 
 			std::string looking_at_str;
 
-			looking_at_str = hit_vox ? "[" + std::to_string(collision_x) + ", " + std::to_string(collision_y) + ", " + std::to_string(collision_z) + "]: " + voxels.names[hit_vox - 1].str : "Air";
+			looking_at_str = hit_vox ? "[" + std::to_string(collision_x) + ", " + std::to_string(collision_y) + ", " + std::to_string(collision_z) + "]: " + voxels.names[hit_vox - 1].str + " (" + std::to_string(hit_vox) + ")" : "Air (0)";
 
 			//Handle "facing"
 			float dir_x = abs(dir3.x);
