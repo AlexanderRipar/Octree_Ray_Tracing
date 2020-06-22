@@ -26,14 +26,12 @@ constexpr bool is_half_res = true;
 
 constexpr int screen_size_x = 640 * (2 - is_half_res);
 constexpr int screen_size_y = 360 * (2 - is_half_res);
-constexpr int pixel_size_x  = 1 + is_half_res;
-constexpr int pixel_size_y  = 1 + is_half_res;
+constexpr int pixel_size  = 1 + is_half_res;
 
 OpenSimplexNoise terrain_noise(8789);
 
 struct tree_camera
 {
-	static constexpr float delta_dir_keboard = 1.0F;
 	static constexpr float delta_dir_mouse = 1.0F / 48;
 
 	static constexpr float delta_speed = 1.0F / tree_t::dim;								//corresponds to one voxel
@@ -70,10 +68,6 @@ struct tree_camera
 		float hit_time;
 
 		tree.sse_trace(pos, rays[idx], hit_direction, hit_voxel, hit_time);
-
-		//return = hit_time == 0.0F ? olc::BLACK : olc::Pixel( (uint8_t)(hit_time * 255), (uint8_t)(hit_time * 1023), (uint8_t)(hit_time * 2047));
-
-		//return colours[static_cast<int>(hit_direction)];
 
 		const olc::Pixel exit_colour{ 0x00, 0xBF, 0xFE };
 		const olc::Pixel inside_colour{ 0x3F, 0x19, 0x07 };
@@ -250,13 +244,6 @@ public:
 
 		camera.dir.x += mouse_delta_x * camera.delta_dir_mouse * fElapsedTime;
 		camera.dir.y -= mouse_delta_y * camera.delta_dir_mouse * fElapsedTime;
-
-		//if (GetKey(olc::Key::LEFT).bHeld)  camera.dir.x -= camera.delta_dir_keyboard * fElapsedTime;
-		//if (GetKey(olc::Key::RIGHT).bHeld) camera.dir.x += camera.delta_dir_keyboard * fElapsedTime;
-		//if (GetKey(olc::Key::UP).bHeld)    camera.dir.y += camera.delta_dir_keyboard * fElapsedTime;
-		//if (GetKey(olc::Key::DOWN).bHeld)  camera.dir.y -= camera.delta_dir_keyboard * fElapsedTime;
-
-
 	}
 
 	void update_text(long long trace_time, const och::float3& dir3, const och::float3& offset, float hit_dst, uint32_t hit_vox, och::direction hit_dir)
@@ -492,6 +479,23 @@ public:
 		Draw(cx + 3, cy + 2, crosshair_col);
 	}
 
+	och::float3 get_directional_hit_offset(och::direction hit_dir)
+	{
+		och::float3 offset(0, 0, 0);
+
+		switch (hit_dir)
+		{
+		case och::direction::x_pos: offset.x = tree.voxel_dim / 2; break;
+		case och::direction::y_pos: offset.y = tree.voxel_dim / 2; break;
+		case och::direction::z_pos: offset.z = tree.voxel_dim / 2; break;
+		case och::direction::x_neg: offset.x = -tree.voxel_dim / 2; break;
+		case och::direction::y_neg: offset.y = -tree.voxel_dim / 2; break;
+		case och::direction::z_neg: offset.z = -tree.voxel_dim / 2; break;
+		}
+
+		return offset;
+	}
+
 	bool OnUserUpdate(float fElapsedTime) override
 	{
 		if (IsFocused())
@@ -509,21 +513,7 @@ public:
 
 			tree.sse_trace(camera.pos, dir3, hit_dir, hit_vox, hit_dst);
 
-			och::float3 offset(0, 0, 0);
-
-			switch (hit_dir)
-			{
-			case och::direction::x_pos: offset.x = tree.voxel_dim / 2; break;
-			case och::direction::y_pos: offset.y = tree.voxel_dim / 2; break;
-			case och::direction::z_pos: offset.z = tree.voxel_dim / 2; break;
-			case och::direction::x_neg: offset.x = -tree.voxel_dim / 2; break;
-			case och::direction::y_neg: offset.y = -tree.voxel_dim / 2; break;
-			case och::direction::z_neg: offset.z = -tree.voxel_dim / 2; break;
-			}
-
-
-
-
+			och::float3 offset = get_directional_hit_offset(hit_dir);
 
 			update_camera_setup();
 
@@ -826,7 +816,7 @@ void test_och_h_octree()
 
 	tree_window window(tree, voxels);
 
-	if (window.Construct(screen_size_x, screen_size_y, pixel_size_x, pixel_size_y))
+	if (window.Construct(screen_size_x, screen_size_y, pixel_size, pixel_size))
 	{
 		printf("\nOpening window...\n");
 

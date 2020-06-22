@@ -46,7 +46,7 @@
     <ClCompile Include="test_och_octree.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="noise.txt" />
+    <Text Include="terrain.txt" />
     <Text Include="voxels.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

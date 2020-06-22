@@ -4,8 +4,6 @@
 
 namespace och
 {
-	using voxel_t = int32_t;
-
 	enum class direction
 	{
 		x_pos = 0,
