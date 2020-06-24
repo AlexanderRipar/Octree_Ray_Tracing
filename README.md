@@ -1,8 +1,8 @@
 ![](https://user-images.githubusercontent.com/49309892/85633380-6f21b700-b679-11ea-860e-393395fe1bba.png)
 
-GENERAL INFO
+General Info
 
-	This project's goal is to experiment around with raytracing octrees, as well as octrees in general.
+	This project's is about experimenting with octrees and octree-based ray-casting.
 	
 	It is currently focused around a compressed, yet dynamic octree-implementation, which can be found
 	in och_h_octree.h.
@@ -21,45 +21,44 @@ GENERAL INFO
 	The major adaptations are the use of a bitmask indicating the dimension of the currently traversed
 	node, as well as an early branch which avoids an overstep-correction when traversing up the tree.
 
-GETTING IT RUNNING
+Getting it Running
 
 	The easiest way of executing the code on your own machine is using Visual Studio and its Git/Github
 	integration. If you aren't familiar with this extension I recommend Bill Raymond's Video "Up and 
 	Running with GitHub and Visual Studio 2019" (https://www.youtube.com/watch?v=csgO95sbSfA).
 	From there it should be a simple matter of compiling the solution and... voila.
 
-KEYBINDS
+Keybinds
 
 	Camera movement:
 
 	W, A, S, D		Move camera
-	C				Switch camera-mode between horizontal and directional movement
+	C			Switch camera-mode between horizontal and directional movement
 	Shift			When the camera is in horizontal move-mode, move down
 	Space			When the camera is in horizontal move-mode, move up
 	Mousewheel		Change camera-speed. If Shift is pressed as well, change slower
 
 	Interaction with tree:
 
-	LMB				Remove a voxel
-	RMB				Place a new voxel
-	T				Place 40^3 voxels
-	Z				Remove 40^3 voxels
+	LMB			Remove a voxel
+	RMB			Place a new voxel
+	T			Place 40^3 voxels
+	Z			Remove 40^3 voxels
 
 	Various:
 
 	ENTER/ESC		Close window
-	I				If the camera is in an active voxel, move it to the first empty voxel above it
-	O				Toggle debug-output in top right of screen
-	M				Mark a point to measure a distance
+	I			If the camera is in an active voxel, move it to the first empty voxel above it
+	O			Toggle debug-output in top right of screen
+	M			Mark a point to measure a distance
 
 	These are only available when the Visualisation-window is open and in focus.
 
-CUSTOMIZATION
+Customization
 
-	First off, voxels and their colours can be specified in the file "voxels.txt". Secondly, the 
-	generated terrain can be defined in "terrain.txt". (This is not implemented yet).
+	Voxel-names and their colours can be specified in the file "voxels.txt". In the future, tree-filling will be directly adjustable as well 
 
-ROADMAP
+Roadmap
 
 	Implement terrain-customization
 
