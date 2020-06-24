@@ -1,10 +1,12 @@
+![](https://user-images.githubusercontent.com/49309892/85633380-6f21b700-b679-11ea-860e-393395fe1bba.png)
+
 GENERAL INFO
 
 	This project's goal is to experiment around with raytracing octrees, as well as octrees in general.
 	
 	It is currently focused around a compressed, yet dynamic octree-implementation, which can be found
 	in och_h_octree.h.
-	This is inspired by "High Resolution Sparse Voxel DAGs" by Viktor Kämpe, Erik Sintorn and Ulf 
+	This is inspired by "High Resolution Sparse Voxel DAGs" by Viktor KÃ¤mpe, Erik Sintorn and Ulf 
 	Assarson (ACM Transactions on Graphics 34(4), 2013). However, unlike the structure presented in
 	the paper, h_octree can be dynamically edited at runtime, while achieving "ideal" compression for
 	a given topology, regardless of the order of operations performed. This is achieved by using a 
