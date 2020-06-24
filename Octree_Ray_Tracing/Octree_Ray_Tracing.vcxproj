@@ -23,6 +23,7 @@
     <ClInclude Include="och_debug.h" />
     <ClInclude Include="och_float.h" />
     <ClInclude Include="och_h_octree.h" />
+    <ClInclude Include="och_noise.h" />
     <ClInclude Include="och_octree.h" />
     <ClInclude Include="och_string_util.h" />
     <ClInclude Include="och_terrain.h" />

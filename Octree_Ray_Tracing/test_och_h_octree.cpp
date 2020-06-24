@@ -14,6 +14,7 @@
 #include "och_string_util.h"
 #include "och_voxel.h"
 
+#include "och_noise.h"
 #include "opensimplex.h"
 
 
@@ -29,6 +30,8 @@ constexpr int screen_size_y = 360 * (2 - is_half_res);
 constexpr int pixel_size  = 1 + is_half_res;
 
 OpenSimplexNoise terrain_noise(8789);
+
+och::simplex_n noise(0.5F);
 
 struct tree_camera
 {
@@ -150,8 +153,7 @@ public:
 
 	bool is_debug = true;
 
-	och::vec3f measure_0{ -1.0F, -1.0F, -1.0F };
-	och::vec3f measure_1{ -1.0F, -1.0F, -1.0F };
+	och::vec3f measure_pt{ -1.0F, -1.0F, -1.0F };
 	std::string measure_output;
 
 	tree_window(tree_t& tree, const och::voxel_data& voxels) : tree{ tree }, voxels{ voxels }, camera{ tree, voxels } { sAppName = "VVV - (Vx Volume Visualisation)"; }
@@ -295,7 +297,7 @@ public:
 		DrawString(txt_beg_x + txt_incr / 2, txt_beg_y + txt_incr * 7 + txt_incr / 2, measure_output);
 	}
 
-	void user_interaction(const och::float3& dir3, const och::float3& offset, och::direction hit_dir, float hit_dst)
+	void user_interaction(const och::float3& dir3, const och::float3& offset, float hit_dst)
 	{
 		if (GetMouse(2).bPressed)//If the middle mouse button is pressed...
 		{
@@ -307,83 +309,6 @@ public:
 			hit_dst = hit_dst > min_jump_dist ? hit_dst - min_jump_dist : 0;
 
 			camera.pos += dir3 * hit_dst;
-		}
-		else if (GetMouse(0).bPressed)//If left mouse button is pressed...
-		{
-			if (hit_dst <= max_interact_dist)
-			{
-				och::float3 collision_pos = camera.pos + (dir3 * hit_dst) + offset;
-
-				collision_pos.x -= 1.0F;
-				collision_pos.y -= 1.0F;
-				collision_pos.z -= 1.0F;
-
-				uint16_t collision_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
-				uint16_t collision_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
-				uint16_t collision_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
-
-				tree.set(collision_x, collision_y, collision_z, 0);
-			}
-		}
-		else if (GetMouse(1).bPressed)//If right mouse button is pressed
-		{
-			if (hit_dst <= max_interact_dist)
-			{
-				och::float3 collision_pos = camera.pos + (dir3 * hit_dst) - offset;
-				collision_pos.x -= 1.0F;
-				collision_pos.y -= 1.0F;
-				collision_pos.z -= 1.0F;
-
-				uint16_t collision_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
-				uint16_t collision_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
-				uint16_t collision_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
-
-				tree.set(collision_x, collision_y, collision_z, 1);
-			}
-		}
-
-		if (GetKey(olc::Key::T).bHeld)
-		{
-			if (hit_dst <= max_interact_dist)
-			{
-				och::float3 collision_pos = camera.pos + (dir3 * hit_dst) + offset;
-				collision_pos.x -= 1.0F;
-				collision_pos.y -= 1.0F;
-				collision_pos.z -= 1.0F;
-
-				uint16_t coll_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
-				uint16_t coll_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
-				uint16_t coll_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
-
-				constexpr int dim = 40;
-
-				for (int z = -dim / 2; z < (dim + 1) / 2; ++z)
-					for (int y = -dim / 2; y < (dim + 1) / 2; ++y)
-						for (int x = -dim / 2; x < (dim + 1) / 2; ++x)
-							tree.set(coll_x + x, coll_y + y, coll_z + z, 1);
-			}
-		}
-
-		if (GetKey(olc::Key::Z).bHeld)
-		{
-			if (hit_dst <= max_interact_dist)
-			{
-				och::float3 collision_pos = camera.pos + (dir3 * hit_dst) - offset;
-				collision_pos.x -= 1.0F;
-				collision_pos.y -= 1.0F;
-				collision_pos.z -= 1.0F;
-
-				uint16_t coll_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
-				uint16_t coll_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
-				uint16_t coll_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
-
-				constexpr int dim = 40;
-
-				for (int z = -dim / 2; z < (dim + 1) / 2; ++z)
-					for (int y = -dim / 2; y < (dim + 1) / 2; ++y)
-						for (int x = -dim / 2; x < (dim + 1) / 2; ++x)
-							tree.set(coll_x + x, coll_y + y, coll_z + z, 0);
-			}
 		}
 
 		if (GetKey(olc::Key::I).bPressed)
@@ -403,46 +328,109 @@ public:
 
 		if (GetKey(olc::Key::M).bPressed)
 		{
-			if (measure_output != "")
+			if (measure_output != "" || measure_pt.x == -1.0F)				//measure_0
 			{
+				measure_pt.x = ((camera.pos.x - 1.0F) + dir3.x * hit_dst) * tree.dim;
+				measure_pt.y = ((camera.pos.y - 1.0F) + dir3.y * hit_dst) * tree.dim;
+				measure_pt.z = ((camera.pos.z - 1.0F) + dir3.z * hit_dst) * tree.dim;
+
 				measure_output = "";
-				measure_0.x = -1.0F;
 			}
-			else if (measure_0.x == -1.0F)
+			else															//measure_1
 			{
-				measure_0.x = ((camera.pos.x - 1.0F) + dir3.x * hit_dst) * tree.dim;
-				measure_0.y = ((camera.pos.y - 1.0F) + dir3.y * hit_dst) * tree.dim;
-				measure_0.z = ((camera.pos.z - 1.0F) + dir3.z * hit_dst) * tree.dim;
-			}
-			else
-			{
-				measure_1.x = ((camera.pos.x - 1.0F) + dir3.x * hit_dst) * tree.dim;
-				measure_1.y = ((camera.pos.y - 1.0F) + dir3.y * hit_dst) * tree.dim;
-				measure_1.z = ((camera.pos.z - 1.0F) + dir3.z * hit_dst) * tree.dim;
+				och::vec3f measure(((camera.pos.x - 1.0F) + dir3.x * hit_dst) * tree.dim, ((camera.pos.y - 1.0F) + dir3.y * hit_dst) * tree.dim, ((camera.pos.z - 1.0F) + dir3.z * hit_dst) * tree.dim);
 
-				float dist = sqrt((measure_0.x - measure_1.x) * (measure_0.x - measure_1.x) + (measure_0.y - measure_1.y) * (measure_0.y - measure_1.y) + (measure_0.z - measure_1.z) * (measure_0.z - measure_1.z));
+				float dist = sqrt((measure_pt.x - measure.x) * (measure_pt.x - measure.x) + (measure_pt.y - measure.y) * (measure_pt.y - measure.y) + (measure_pt.z - measure.z) * (measure_pt.z - measure.z));
 
-				measure_output = "a: " + std::to_string(measure_0.x) + ", " + std::to_string(measure_0.y) + ", " + std::to_string(measure_0.z) + "\n" +
-					"b: " + std::to_string(measure_1.x) + ", " + std::to_string(measure_1.y) + ", " + std::to_string(measure_1.z) + "\n" +
-					"=> " + std::to_string(dist);
+				measure_output = "Dist = " + std::to_string(dist);
 			}
 		}
+
+		if (hit_dst >= max_interact_dist)
+			return;
+
+		if (GetMouse(0).bPressed)//If left mouse button is pressed...
+		{
+			och::float3 collision_pos = camera.pos + (dir3 * hit_dst) + offset;
+
+			collision_pos.x -= 1.0F;
+			collision_pos.y -= 1.0F;
+			collision_pos.z -= 1.0F;
+
+			uint16_t collision_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
+			uint16_t collision_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
+			uint16_t collision_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
+
+			tree.set(collision_x, collision_y, collision_z, 0);
+		}
+		else if (GetMouse(1).bPressed)//If right mouse button is pressed
+		{
+			och::float3 collision_pos = camera.pos + (dir3 * hit_dst) - offset;
+			collision_pos.x -= 1.0F;
+			collision_pos.y -= 1.0F;
+			collision_pos.z -= 1.0F;
+
+			uint16_t collision_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
+			uint16_t collision_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
+			uint16_t collision_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
+
+			tree.set(collision_x, collision_y, collision_z, 1);
+		}
+
+		if (GetKey(olc::Key::T).bHeld)
+		{
+			och::float3 collision_pos = camera.pos + (dir3 * hit_dst) + offset;
+			collision_pos.x -= 1.0F;
+			collision_pos.y -= 1.0F;
+			collision_pos.z -= 1.0F;
+
+			uint16_t coll_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
+			uint16_t coll_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
+			uint16_t coll_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
+
+			constexpr int dim = 40;
+
+			for (int z = -dim / 2; z < (dim + 1) / 2; ++z)
+				for (int y = -dim / 2; y < (dim + 1) / 2; ++y)
+					for (int x = -dim / 2; x < (dim + 1) / 2; ++x)
+						tree.set(coll_x + x, coll_y + y, coll_z + z, 1);
+		}
+
+		if (GetKey(olc::Key::Z).bHeld)
+		{
+				och::float3 collision_pos = camera.pos + (dir3 * hit_dst) - offset;
+				collision_pos.x -= 1.0F;
+				collision_pos.y -= 1.0F;
+				collision_pos.z -= 1.0F;
+
+				uint16_t coll_x = static_cast<uint16_t>(collision_pos.x * tree.dim);
+				uint16_t coll_y = static_cast<uint16_t>(collision_pos.y * tree.dim);
+				uint16_t coll_z = static_cast<uint16_t>(collision_pos.z * tree.dim);
+
+				constexpr int dim = 40;
+
+				for (int z = -dim / 2; z < (dim + 1) / 2; ++z)
+					for (int y = -dim / 2; y < (dim + 1) / 2; ++y)
+						for (int x = -dim / 2; x < (dim + 1) / 2; ++x)
+							tree.set(coll_x + x, coll_y + y, coll_z + z, 0);
+		}
+
 	}
 
 	long long update_image()
 	{
 		const olc::Pixel exit_colour{ 0x00, 0xBF, 0xFE };
 
+		std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
+
 		if (!tree.get_root())
 			for (int y = 0; y < ScreenHeight(); ++y)
 				for (int x = 0; x < ScreenWidth(); ++x)
 					Draw(x, y, exit_colour);
-
-		std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-
-		for (int y = 0; y < ScreenHeight(); ++y)
-			for (int x = 0; x < ScreenWidth(); ++x)
-				Draw(x, y, camera.trace_pixel(x, y));
+		else
+			for (int y = 0; y < ScreenHeight(); ++y)
+				for (int x = 0; x < ScreenWidth(); ++x)
+					Draw(x, y, camera.trace_pixel(x, y));
 
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
@@ -498,47 +486,69 @@ public:
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
+		//for (int y = 0; y < ScreenHeight(); ++y)
+		//	for (int x = 0; x < ScreenWidth(); ++x)
+		//	{
+		//		float n = noise(x, y, 4) + 1.0F;
+		//
+		//		Draw(x, y, olc::Pixel(0, 0, (uint8_t)(128 * n)));
+		//	}
+
+		//for (int y = 0; y < ScreenHeight(); ++y)
+		//	for (int x = 0; x < ScreenWidth(); ++x)
+		//	{
+		//		float n = terrain_noise.Evaluate(x / 32.0F, y / 32.0F, 4) + 1.0F;
+		//
+		//		Draw(x, y, olc::Pixel(0, 0, (uint8_t)(128 * n)));
+		//	}
+
 		if (IsFocused())
 		{
 			if (GetKey(olc::Key::ESCAPE).bHeld || GetKey(olc::Key::ENTER).bHeld)
 				return false;
-
+		
 			och::float3 dir3 = { cosf(camera.dir.x) * cosf(camera.dir.y), sinf(camera.dir.x) * cosf(camera.dir.y), sinf(camera.dir.y) };
-
-			float hit_dst;
-
-			och::direction hit_dir;
-
-			uint32_t hit_vox;
-
-			tree.sse_trace(camera.pos, dir3, hit_dir, hit_vox, hit_dst);
-
+		
+			float hit_dst = INFINITY;
+		
+			och::direction hit_dir = och::direction::exit;
+		
+			uint32_t hit_vox = 0;
+			
+			if(tree.get_root())
+				tree.sse_trace(camera.pos, dir3, hit_dir, hit_vox, hit_dst);
+		
 			och::float3 offset = get_directional_hit_offset(hit_dir);
-
+			
 			update_camera_setup();
-
+			
 			update_camera_pos(fElapsedTime, dir3);
-
+		
 			update_camera_dir(fElapsedTime);
-
-			user_interaction(dir3, offset, hit_dir, hit_dst);
-
+			
+			user_interaction(dir3, offset, hit_dst);
+			
 			camera.update_position();
-
+			
 			long long trace_time = update_image();
-
+			
 			update_text(trace_time, dir3, offset, hit_dst, hit_vox, hit_dir);
 		}
-
+		
 		return true;
 	}
 };
 
 
 
-int get_terrain_heigth(int x, int y, size_t dim)
+int get_terrain_heigth(int x, int y)
 {
-	return static_cast<int>(terrain_noise.Evaluate((static_cast<float>(x * 4) / dim), (static_cast<float>(y * 4) / dim)) * dim / 16 + dim / 4);
+	float px = (static_cast<float>(x * 4) / tree_t::dim);
+	float py = (static_cast<float>(y * 4) / tree_t::dim);
+
+	return static_cast<int>(noise(px, py) * tree_t::dim / 16 + tree_t::dim / 4);
+
+	//return static_cast<int>(terrain_noise.Evaluate(px, py) * tree_t::dim / 16 + tree_t::dim / 4);
 }
 
 struct heightmap
@@ -561,7 +571,7 @@ struct heightmap
 	{
 		for(int y = 0; y < dim; ++y)
 			for (int x = 0; x < dim; ++x)
-				get(x, y) = get_terrain_heigth(x, y, dim);
+				get(x, y) = get_terrain_heigth(x, y);
 	}
 
 	~heightmap()
@@ -721,9 +731,9 @@ struct splatter_noise
 	uint32_t active_v;
 	uint32_t inactive_v = 0;
 	float scale;
-	OpenSimplexNoise noise;
+	OpenSimplexNoise m_noise;
 
-	splatter_noise(float threshold, uint32_t active_v, uint32_t inactive_v, float scale = tree_t::voxel_dim, int64_t seed = 123456) : threshold{ threshold }, active_v{ active_v }, inactive_v{ inactive_v }, scale{ scale }, noise{ OpenSimplexNoise(seed) } {}
+	splatter_noise(float threshold, uint32_t active_v, uint32_t inactive_v, float scale = tree_t::voxel_dim, int64_t seed = 123456) : threshold{ threshold }, active_v{ active_v }, inactive_v{ inactive_v }, scale{ scale }, m_noise{ OpenSimplexNoise(seed) } {}
 
 	uint32_t operator()(int x, int y, int z)
 	{
@@ -731,7 +741,7 @@ struct splatter_noise
 		float fy = static_cast<float>(y) * scale;
 		float fz = static_cast<float>(z) * scale;
 
-		float val = static_cast<float>(terrain_noise.Evaluate(fx, fy, fz));
+		float val = static_cast<float>(noise(fx, fy, fz));
 
 		return val >= threshold ? active_v : inactive_v;
 	}
@@ -740,7 +750,7 @@ struct splatter_noise
 void initialize_h_octree(tree_t& tree)
 {
 	splatter_noise caverns(-0.6F, 1, 0, 1.0F / 64.0F, 1282);
-	splatter_noise tunnels(-0.4F, 1, 0, 1.0F / 16.0F, 9767564);
+	splatter_noise tunnels(-0.5F, 1, 0, 1.0F / 16.0F, 9767564);
 
 	heightmap heights(tree.dim);
 	
@@ -792,13 +802,7 @@ void test_och_h_octree()
 
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-	{
-		//heightmap heightfield(tree.dim);
-		//
-		//tree.set_root(create_volume(0, 0, 0, tree.depth, heightfield, tree));
-
-		initialize_h_octree(tree);
-	}
+	initialize_h_octree(tree);
 
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
