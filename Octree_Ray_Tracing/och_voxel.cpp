@@ -74,18 +74,18 @@ namespace och
 
 	void voxel_data::reload(std::string& errmsg)
 	{
-		delete[] colours;
-		delete[] names;
+		int new_voxel_cnt = get_voxel_cnt(filename, errmsg);
 
-		voxel_cnt = get_voxel_cnt(filename, errmsg);
+		if (errmsg != "")//Set from get_voxel_cnt
+			return;
 
-		colours = new pixel[voxel_cnt * 6];
-		names = new name[voxel_cnt];
+		if (voxel_cnt != new_voxel_cnt)
+		{
+			errmsg = "New Voxel-count does not match old";
+			return;
+		}
 
 		FILE* file;
-
-		if (errmsg != "")//Set from get_voxel_cnt()
-			return;
 
 		if (int file_error = fopen_s(&file, filename.c_str(), "r"))
 		{

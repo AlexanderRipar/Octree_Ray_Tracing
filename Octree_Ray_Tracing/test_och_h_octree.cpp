@@ -24,10 +24,11 @@
 typedef och::h_octree<19, 8> tree_t;
 
 constexpr bool is_half_res = true;
+constexpr bool is_full_screen = false;
 
-constexpr int screen_size_x = 640 * (2 - is_half_res);
-constexpr int screen_size_y = 360 * (2 - is_half_res);
-constexpr int pixel_size  = 1 + is_half_res;
+constexpr int window_size_x = is_full_screen ? 1920 : 640 * (2 - is_half_res);
+constexpr int window_size_y = is_full_screen ? 1080 : 360 * (2 - is_half_res);
+constexpr int pixel_size    = is_full_screen ? 1 : 1 + is_half_res;
 
 OpenSimplexNoise terrain_noise(8789);
 
@@ -45,7 +46,7 @@ struct tree_camera
 
 	const och::voxel_data& voxels;
 
-	och::float3* rays = new och::float3[screen_size_x * screen_size_y];
+	och::float3* rays = new och::float3[window_size_x * window_size_y];
 
 	bool is_flying_camera = true;
 
@@ -62,7 +63,7 @@ struct tree_camera
 
 	olc::Pixel trace_pixel(size_t x, size_t y)
 	{
-		size_t idx = (x + y * screen_size_x);
+		size_t idx = (x + y * window_size_x);
 
 		och::direction hit_direction;
 
@@ -85,11 +86,11 @@ struct tree_camera
 
 	void update_position()
 	{
-		constexpr float aspect_ratio_factor = static_cast<float>(screen_size_x) / static_cast<float>(screen_size_y);
+		constexpr float aspect_ratio_factor = static_cast<float>(window_size_x) / static_cast<float>(window_size_y);
 
-		constexpr float view_factor_x = 2.0F / static_cast<float>(screen_size_x);
+		constexpr float view_factor_x = 2.0F / static_cast<float>(window_size_x);
 
-		constexpr float view_factor_y = 2.0F / static_cast<float>(screen_size_y);
+		constexpr float view_factor_y = 2.0F / static_cast<float>(window_size_y);
 
 		constexpr float fov = 1.25F;
 
@@ -115,9 +116,9 @@ struct tree_camera
 
 		int idx = 0;
 
-		for (int vert = 0; vert < screen_size_y; ++vert)
+		for (int vert = 0; vert < window_size_y; ++vert)
 		{
-			for (int horiz = 0; horiz < screen_size_x; ++horiz)
+			for (int horiz = 0; horiz < window_size_x; ++horiz)
 			{
 				const float u = aspect_ratio_factor * (view_factor_x * static_cast<float>(horiz) - 1.0F);
 
@@ -362,7 +363,7 @@ public:
 			}
 		}
 
-		if (hit_dst >= max_interact_dist)
+		if (hit_dst >= max_interact_dist)//Distance check
 			return;
 
 		if (GetMouse(0).bPressed)//If left mouse button is pressed...
@@ -457,8 +458,8 @@ public:
 
 	void draw_crosshair()
 	{
-		constexpr int cx = screen_size_x / 2 - 1;
-		constexpr int cy = screen_size_y / 2 - 1;
+		constexpr int cx = window_size_x / 2 - 1;
+		constexpr int cy = window_size_y / 2 - 1;
 
 		const olc::Pixel crosshair_col(70, 30, 0);
 
@@ -836,7 +837,7 @@ void test_och_h_octree()
 
 	tree_window window(tree, voxels);
 
-	if (window.Construct(screen_size_x, screen_size_y, pixel_size, pixel_size))
+	if (window.Construct(window_size_x, window_size_y, pixel_size, pixel_size, is_full_screen))
 	{
 		printf("\nOpening window...\n");
 
