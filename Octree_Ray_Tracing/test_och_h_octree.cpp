@@ -80,7 +80,7 @@ struct tree_camera
 		else if (hit_direction == och::direction::inside)
 			return inside_colour;
 
-		return reinterpret_cast<const olc::Pixel*>(voxels.colours)[6 * (hit_voxel - 1) + static_cast<uint32_t>(hit_direction)];
+		return reinterpret_cast<const olc::Pixel*>(voxels.get_colours())[6 * (hit_voxel - 1) + static_cast<uint32_t>(hit_direction)];
 	}
 
 	void update_position()
@@ -147,7 +147,7 @@ public:
 
 	tree_t& tree;
 
-	const och::voxel_data& voxels;
+	och::voxel_data& voxels;
 
 	tree_camera camera;
 
@@ -156,7 +156,7 @@ public:
 	och::vec3f measure_pt{ -1.0F, -1.0F, -1.0F };
 	std::string measure_output;
 
-	tree_window(tree_t& tree, const och::voxel_data& voxels) : tree{ tree }, voxels{ voxels }, camera{ tree, voxels } { sAppName = "VVV - (Vx Volume Visualisation)"; }
+	tree_window(tree_t& tree, och::voxel_data& voxels) : tree{ tree }, voxels{ voxels }, camera{ tree, voxels } { sAppName = "VVV - (Vx Volume Visualisation)"; }
 
 	bool OnUserCreate() override
 	{
@@ -268,7 +268,7 @@ public:
 
 			std::string looking_at_str;
 
-			looking_at_str = hit_vox ? "[" + std::to_string(collision_x) + ", " + std::to_string(collision_y) + ", " + std::to_string(collision_z) + "]: " + voxels.names[hit_vox - 1].str + " (" + std::to_string(hit_vox) + ")" : "Air (0)";
+			looking_at_str = hit_vox ? "[" + std::to_string(collision_x) + ", " + std::to_string(collision_y) + ", " + std::to_string(collision_z) + "]: " + voxels.get_names()[hit_vox - 1].str + " (" + std::to_string(hit_vox) + ")" : "Air (0)";
 
 			//Handle "facing"
 			float dir_x = abs(dir3.x);
@@ -343,6 +343,22 @@ public:
 				float dist = sqrt((measure_pt.x - measure.x) * (measure_pt.x - measure.x) + (measure_pt.y - measure.y) * (measure_pt.y - measure.y) + (measure_pt.z - measure.z) * (measure_pt.z - measure.z));
 
 				measure_output = "Dist = " + std::to_string(dist);
+			}
+		}
+
+		if (GetKey(olc::Key::R).bPressed)
+		{
+			std::string errmsg;
+
+			voxels.reload(errmsg);
+
+			if (errmsg != "")
+			{
+				printf("\n%s\n", errmsg.c_str());
+
+				printf("\n...Exited test_och_hashed_octree\n");
+
+				exit(0);
 			}
 		}
 
@@ -788,7 +804,7 @@ void test_och_h_octree()
 		return;
 	}
 
-	printf("\nRead data for %i voxels\n", voxels.voxel_cnt);
+	printf("\nRead data for %i voxels\n", voxels.get_cnt());
 
 	printf("\nConstructing tree\n");
 

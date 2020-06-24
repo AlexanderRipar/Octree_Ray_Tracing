@@ -46,25 +46,26 @@ namespace och
 
 	struct voxel_data
 	{
-		const int voxel_cnt;
-		pixel* const colours;
-		name* const names;
+	private:
 
-		const pixel* const get_colours() const
-		{
-			return colours;
-		}
+		const std::string filename;
 
-		const name* get_names() const
-		{
-			return names;
-		}
+		int voxel_cnt;
+		pixel* colours;
+		name* names;
+
+	public:
+		int get_cnt() const;
+
+		const pixel* const get_colours() const;
+
+		const name* get_names() const;
+
+		void reload(std::string& errmsg);
 
 		voxel_data(const std::string& filename, std::string& errmsg);
 
 		~voxel_data();
 
 	};
-
-	voxel_data read_voxel_data(const std::string& filename, std::string& errormsg);
 }

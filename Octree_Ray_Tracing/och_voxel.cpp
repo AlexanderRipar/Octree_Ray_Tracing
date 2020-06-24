@@ -28,7 +28,7 @@ namespace och
 		if (int file_error = fopen_s(&file, filename.c_str(), "r"))
 		{
 			char msg[128];
-			
+
 			if (!strerror_s(msg, file_error))
 				errmsg = "Could not open " + filename + ": " + std::string(msg) + " (errno: " + std::to_string(file_error) + ")";
 			else
@@ -57,7 +57,142 @@ namespace och
 		return voxel_cnt;
 	}
 
-	voxel_data::voxel_data(const std::string& filename, std::string& errmsg) : voxel_cnt{ get_voxel_cnt(filename, errmsg) }, colours{ new pixel[6 * voxel_cnt] }, names{ new name[voxel_cnt] }
+	int voxel_data::get_cnt() const
+	{
+		return voxel_cnt;
+	}
+
+	const pixel* const voxel_data::get_colours() const
+	{
+		return colours;
+	}
+
+	const name* voxel_data::get_names() const
+	{
+		return names;
+	}
+
+	void voxel_data::reload(std::string& errmsg)
+	{
+		delete[] colours;
+		delete[] names;
+
+		voxel_cnt = get_voxel_cnt(filename, errmsg);
+
+		colours = new pixel[voxel_cnt * 6];
+		names = new name[voxel_cnt];
+
+		FILE* file;
+
+		if (errmsg != "")//Set from get_voxel_cnt()
+			return;
+
+		if (int file_error = fopen_s(&file, filename.c_str(), "r"))
+		{
+			char msg[128];
+
+			if (!strerror_s(msg, file_error))
+				errmsg = "Could not open " + filename + ": " + std::string(msg) + " (errno: " + std::to_string(file_error) + ")";
+			else
+				errmsg = "holy pooper, wahapen? Your error was seemingly too big (>= 128 characters). (errno: " + std::to_string(file_error) + ")";
+
+			return;
+		}
+
+		for (int curr_vx = 0; curr_vx != voxel_cnt; ++curr_vx)
+		{
+			//Read name
+			int c = first_non_space(file);
+
+			int i = 0;
+
+			for (i = 0; i != name::max_len && c != ':'; ++i, c = fgetc(file))
+			{
+				if (c == EOF)
+				{
+					errmsg = filename + " ended unexpectedly";
+					fclose(file);
+					return;
+				}
+
+				if (iscntrl(c))
+				{
+					errmsg = "Voxel-names may not contain control-characters (see voxel number" + std::to_string(curr_vx + 1) + ")";
+				}
+
+				names[curr_vx].str[i] = c;
+			}
+
+			if (i == 1)
+			{
+				errmsg = "Voxel-names must contain at least one character";
+				fclose(file);
+				return;
+			}
+			else if (i == name::max_len)
+			{
+				errmsg = "Voxel-names may not exceed " + std::to_string(name::max_len) + " characters";
+				fclose(file);
+				return;
+			}
+
+			for (; i < 16; ++i)
+				names[curr_vx].str[i] = '\0';
+
+			//Read colours
+			for (int dir = 0; dir != 6; ++dir)
+			{
+				int c = first_non_space(file);
+
+				for (int byte = 0; byte != 3; ++byte)
+				{
+					if (c == EOF)
+					{
+						errmsg = filename + " ended unexpectedly";
+						fclose(file);
+						return;
+					}
+
+					if (!isxdigit(c))
+					{
+						errmsg = "Non-hex character in colour-value (" + std::string(names[curr_vx].str) + " at colour no. " + std::to_string(dir + 1) + ")";
+						fclose(file);
+						return;
+					}
+
+					int val = unchecked_hexval(c) << 4;
+
+					c = fgetc(file);
+
+					if (c == EOF)
+					{
+						errmsg = filename + " ended unexpectedly";
+						fclose(file);
+						return;
+					}
+
+					if (!isxdigit(c))
+					{
+						errmsg = "Non-hex character in colour-value (" + std::string(names[curr_vx].str) + " at colour no. " + std::to_string(dir + 1) + ")";
+						fclose(file);
+						return;
+					}
+
+					val |= unchecked_hexval(c);
+
+					c = fgetc(file);
+
+					colours[curr_vx * 6 + dir].arr[byte] = val;
+				}
+			}
+		}
+
+		fclose(file);
+
+		return;
+	}
+
+	voxel_data::voxel_data(const std::string& filename, std::string& errmsg) : filename(filename), voxel_cnt( get_voxel_cnt(filename, errmsg) ), colours( new pixel[6 * voxel_cnt] ), names( new name[voxel_cnt] )
 	{
 		FILE* file;
 
@@ -115,9 +250,6 @@ namespace och
 
 			for (; i < 16; ++i)
 				names[curr_vx].str[i] = '\0';
-
-			if (curr_vx == voxel_cnt - 1)
-				printf("");
 
 			//Read colours
 			for (int dir = 0; dir != 6; ++dir)
